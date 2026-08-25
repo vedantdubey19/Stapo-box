@@ -14,12 +14,19 @@ import html
 import json
 import os
 import random
+import sys
 import threading
 import time
+from pathlib import Path
 import requests
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
+
+# Ensure project root is in sys.path when running on Streamlit Cloud
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
 # ── 1. Sync Streamlit Secrets into os.environ for Cloud Deployments ───────────────
 try:
