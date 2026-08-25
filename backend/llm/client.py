@@ -67,13 +67,13 @@ class MultiKeyGeminiPool:
         if not self.clients:
             raise ValueError("At least one valid Gemini API key is required.")
         self.primary_model = primary_model
-        self.fallback_models = ["gemini-2.5-flash", "gemini-3.5-flash-lite"]
+        self.fallback_models = ["gemini-2.5-flash", "gemini-flash-lite-latest"]
         self._index = 0
         self._lock = threading.Lock()
 
-    def get_client_and_index(self):
+    def get_client_and_index(self, offset: int = 0):
         with self._lock:
-            idx = self._index % len(self.clients)
+            idx = (self._index + offset) % len(self.clients)
             self._index += 1
             return self.clients[idx], idx
 
@@ -140,7 +140,7 @@ class LLMClient:
         self,
         prompt: str,
         system_instruction: Optional[str] = None,
-        max_retries: int = 3,
+        max_retries: int = 4,
     ) -> Dict[str, Any]:
         """Invoke Gemini model across keys and fallback models with sub-second execution."""
         config = types.GenerateContentConfig(
@@ -157,7 +157,8 @@ class LLMClient:
         last_error = None
         for attempt in range(1, max_retries + 1):
             self.rate_limiter.acquire()
-            client, key_idx = self.gemini_pool.get_client_and_index()
+            # Alternate across keys on retries
+            client, key_idx = self.gemini_pool.get_client_and_index(offset=attempt - 1)
             model_name = models_to_try[(attempt - 1) % len(models_to_try)]
 
             try:
@@ -173,10 +174,14 @@ class LLMClient:
                 return json.loads(cleaned)
             except Exception as e:
                 last_error = e
+                is_rate_limit = "429" in str(e) or "quota" in str(e).lower() or "resource_exhausted" in str(e).lower()
                 logger.warning(
                     f"Gemini error on key #{key_idx+1} model {model_name} (attempt {attempt}/{max_retries}): {e}"
                 )
-                time.sleep(0.3 * attempt)
+                if is_rate_limit:
+                    time.sleep(1.2 * attempt)
+                else:
+                    time.sleep(0.3 * attempt)
 
         raise RuntimeError(f"Gemini generation failed after {max_retries} attempts: {last_error}") from last_error
 
