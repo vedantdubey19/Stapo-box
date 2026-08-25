@@ -719,7 +719,18 @@ def _wrap_story_scaffold(segments_html: str, sport: str, tag_label: str, kicker:
 
 # ── App Header ──────────────────────────────────────────────────────────────────
 st.markdown('<div class="eyebrow">AI-Powered Sports Engagement Content Agent</div>', unsafe_allow_html=True)
-st.title("🏆 StapuBox Story Studio")
+hdr_col1, hdr_col2 = st.columns([2.2, 1.1])
+with hdr_col1:
+    st.title("🏆 StapuBox Story Studio")
+with hdr_col2:
+    st.markdown(
+        """
+        <div style="background: rgba(139, 92, 246, 0.12); border: 1px solid rgba(139, 92, 246, 0.35); border-radius: 12px; padding: 7px 12px; margin-top: 14px; text-align: right; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
+            <span style="font-size: 12px; color: #E9D5FF; font-weight: 500;">🌙 <b>Dark Theme</b> enabled for best visual experience</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 # ── Tabs Navigation ─────────────────────────────────────────────────────────────
 tab_studio, tab_analytics = st.tabs(["🏆 Story Studio", "📊 Freshness & Grounding Analytics (USP)"])
