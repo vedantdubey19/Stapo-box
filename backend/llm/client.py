@@ -32,14 +32,15 @@ def clean_json_response(raw_text: str) -> str:
 class SlidingWindowRateLimiter:
     """Thread-safe sliding window rate limiter ensuring requests per minute stay below ceiling."""
 
-    def __init__(self, max_rpm: int = 12, window_seconds: float = 60.0):
+    def __init__(self, max_rpm: int = 14, window_seconds: float = 60.0):
         self.max_rpm = max(1, max_rpm)
         self.window_seconds = window_seconds
+        self._min_interval = window_seconds / float(self.max_rpm)
         self._timestamps: deque = deque()
         self._lock = threading.Lock()
 
     def acquire(self) -> float:
-        """Block until a slot in the sliding window is available.
+        """Block until a slot in the sliding window is available with smooth spacing.
         
         Returns:
             float: Total seconds waited before acquiring slot.
@@ -53,21 +54,23 @@ class SlidingWindowRateLimiter:
                 while self._timestamps and self._timestamps[0] <= now - self.window_seconds:
                     self._timestamps.popleft()
 
-                if len(self._timestamps) < self.max_rpm:
+                # Check sliding window capacity
+                if len(self._timestamps) >= self.max_rpm:
+                    oldest = self._timestamps[0]
+                    sleep_needed = max(0.1, (oldest + self.window_seconds) - now + 0.05)
+                elif self._timestamps:
+                    # Apply smooth spacing between consecutive requests
+                    time_since_last = now - self._timestamps[-1]
+                    if time_since_last < self._min_interval:
+                        sleep_needed = max(0.05, self._min_interval - time_since_last)
+
+                if sleep_needed <= 0.0:
                     self._timestamps.append(now)
                     if total_waited > 0:
                         logger.info(f"RateLimiter: Slot acquired after {total_waited:.2f}s wait ({len(self._timestamps)}/{self.max_rpm} in window).")
                     return total_waited
 
-                # Calculate duration until oldest request exits window
-                oldest = self._timestamps[0]
-                sleep_needed = max(0.1, (oldest + self.window_seconds) - now + 0.1)
-
             if sleep_needed > 0:
-                logger.info(
-                    f"RateLimiter: Pacing requests (current {len(self._timestamps)}/{self.max_rpm} in {self.window_seconds}s window). "
-                    f"Sleeping {sleep_needed:.2f}s..."
-                )
                 time.sleep(sleep_needed)
                 total_waited += sleep_needed
 

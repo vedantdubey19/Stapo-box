@@ -96,8 +96,17 @@ class VectorStore:
         query_text: Optional[str] = None,
         n_results: int = 3,
     ) -> List[Dict[str, Any]]:
-        """Query sports facts filtered by sport and optionally difficulty."""
-        search_text = query_text or f"{difficulty or ''} {sport} sports facts records rules history"
+        """Query sports facts filtered by sport with diverse thematic rotation."""
+        angles = [
+            "world records and historic milestones",
+            "official rules, scoring laws and regulations",
+            "legendary champions and tournament history",
+            "famous matches and scoring achievements",
+            "iconic athletes and record breaking performances",
+            "equipment, court dimensions and game tactics",
+        ]
+        chosen_angle = random.choice(angles)
+        search_text = query_text or f"{sport} {difficulty or ''} {chosen_angle}"
         where_filter: Dict[str, Any] = {"sport": sport}
         if difficulty:
             where_filter = {
@@ -110,7 +119,7 @@ class VectorStore:
         try:
             results = self.facts_collection.query(
                 query_texts=[search_text],
-                n_results=n_results,
+                n_results=min(n_results + 2, 6),
                 where=where_filter,
             )
             

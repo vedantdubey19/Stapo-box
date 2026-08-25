@@ -282,7 +282,7 @@ with tab_gen:
                             "content_types": selected_types or ["MCQ"],
                             "topic_hint": topic_hint if topic_hint.strip() else None,
                         },
-                        timeout=45,
+                        timeout=120,
                     )
                     if resp.status_code == 200:
                         data = resp.json()
@@ -299,7 +299,7 @@ with tab_gen:
                             "content_type": single_type,
                             "topic_hint": topic_hint if topic_hint.strip() else None,
                         },
-                        timeout=20,
+                        timeout=60,
                     )
                     if resp.status_code == 200:
                         data = resp.json()
@@ -311,6 +311,8 @@ with tab_gen:
                         st.success("✨ Single item generated successfully!")
                     else:
                         st.error(f"Error {resp.status_code}: {resp.text}")
+            except requests.exceptions.ReadTimeout:
+                st.error("⏳ Generation timed out while awaiting rate-pacing slots on the free-tier model. Please try again.")
             except Exception as err:
                 st.error(f"❌ Backend connection failed: {err}")
 
@@ -322,7 +324,7 @@ with tab_gen:
         with action_col2:
             if st.button("🔄 Refresh Entire Batch", use_container_width=True):
                 params = st.session_state.last_params
-                with st.spinner("Regenerating full batch..."):
+                with st.spinner("Regenerating full batch (pacing requests for rate limits)..."):
                     try:
                         resp = requests.post(
                             f"{BACKEND_URL}/generate/batch",
@@ -333,11 +335,13 @@ with tab_gen:
                                 "content_types": params.get("types", ["MCQ"]),
                                 "topic_hint": params.get("topic_hint"),
                             },
-                            timeout=45,
+                            timeout=120,
                         )
                         if resp.status_code == 200:
                             st.session_state.batch_items = resp.json().get("items", [])
                             st.rerun()
+                    except requests.exceptions.ReadTimeout:
+                        st.error("⏳ Batch refresh timed out while awaiting rate-pacing slots. Please retry.")
                     except Exception as e:
                         st.error(f"Batch refresh failed: {e}")
         with action_col3:
@@ -391,7 +395,7 @@ with tab_gen:
                                     "content_type": c_type,
                                     "topic_hint": topic_hint if topic_hint.strip() else None,
                                 },
-                                timeout=25,
+                                timeout=60,
                             )
                             if resp.status_code == 200:
                                 new_wrapper = resp.json().get("item")
@@ -399,6 +403,8 @@ with tab_gen:
                                 st.rerun()
                             else:
                                 st.error(f"Error: {resp.text}")
+                        except requests.exceptions.ReadTimeout:
+                            st.error("⏳ Item regeneration timed out while awaiting rate-pacing slots. Please retry.")
                         except Exception as err:
                             st.error(f"Failed to regenerate: {err}")
 
