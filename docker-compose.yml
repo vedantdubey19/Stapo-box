@@ -1,0 +1,18 @@
+version: "3.8"
+
+services:
+  app:
+    build: .
+    container_name: stapubox_agent
+    ports:
+      - "8501:8501"
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - BACKEND_HOST=127.0.0.1
+      - BACKEND_PORT=8000
+      - BACKEND_URL=http://127.0.0.1:8000
+    volumes:
+      - ./data/chroma_db:/app/data/chroma_db
+    restart: unless-stopped

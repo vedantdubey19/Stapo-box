@@ -26,7 +26,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-BACKEND_URL = "http://127.0.0.1:8000"
+BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000").rstrip("/")
 
 # ── Design Palette Constants ─────────────────────────────────────────────────────
 HEADER_BLUE = "#4E7CFF"
