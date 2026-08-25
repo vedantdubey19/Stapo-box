@@ -21,6 +21,14 @@ import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
 
+# ── 1. Sync Streamlit Secrets into os.environ for Cloud Deployments ───────────────
+try:
+    for s_key, s_val in st.secrets.items():
+        if isinstance(s_val, str) and s_key not in os.environ:
+            os.environ[s_key] = s_val
+except Exception:
+    pass
+
 # ── Page Configuration ───────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="StapuBox — Sports Content Agent",
@@ -32,28 +40,76 @@ st.set_page_config(
 BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000").rstrip("/")
 
 
-@st.cache_resource
-def ensure_backend_running():
-    """Ensure FastAPI backend is active; spins up daemon instance for Streamlit Cloud."""
+def fetch_batch(sport: str, difficulty: str, count: int, active_types: list, topic_hint: str):
+    """Generate a batch using FastAPI REST endpoint or in-process orchestrator fallback."""
     try:
-        requests.get(f"{BACKEND_URL}/health", timeout=1.0)
+        resp = requests.post(
+            f"{BACKEND_URL}/generate/batch",
+            json={
+                "sport": sport,
+                "difficulty": difficulty,
+                "count": count,
+                "content_types": active_types,
+                "topic_hint": topic_hint if topic_hint.strip() else None,
+            },
+            timeout=60,
+        )
+        if resp.status_code == 200:
+            return resp.json().get("items", [])
     except Exception:
-        if "127.0.0.1" in BACKEND_URL or "localhost" in BACKEND_URL:
-            try:
-                import uvicorn
-                from backend.main import app as fastapi_app
+        pass
 
-                def _run_server():
-                    uvicorn.run(fastapi_app, host="127.0.0.1", port=8000, log_level="warning")
+    # Direct in-process execution (bulletproof for Streamlit Community Cloud)
+    from backend.agent.orchestrator import orchestrator
+    items = orchestrator.generate_batch(
+        sport=sport,
+        difficulty=difficulty,
+        count=count,
+        content_types=active_types,
+        topic_hint=topic_hint if topic_hint.strip() else None,
+    )
+    return [i.model_dump() for i in items]
 
-                t = threading.Thread(target=_run_server, daemon=True)
-                t.start()
-                time.sleep(1.2)
-            except Exception as e:
-                pass
+
+def fetch_regenerate_item(sport: str, difficulty: str, target_type: str, topic_hint: str):
+    """Regenerate a single item using FastAPI REST endpoint or in-process fallback."""
+    try:
+        resp = requests.post(
+            f"{BACKEND_URL}/regenerate/item",
+            json={
+                "sport": sport,
+                "difficulty": difficulty,
+                "content_type": target_type,
+                "topic_hint": topic_hint if topic_hint.strip() else None,
+            },
+            timeout=30,
+        )
+        if resp.status_code == 200:
+            return resp.json().get("item", {})
+    except Exception:
+        pass
+
+    from backend.agent.orchestrator import orchestrator
+    wrapper = orchestrator.regenerate_single_item(
+        sport=sport,
+        difficulty=difficulty,
+        content_type=target_type,
+        topic_hint=topic_hint if topic_hint.strip() else None,
+    )
+    return wrapper.model_dump()
 
 
-ensure_backend_running()
+def fetch_analytics():
+    """Retrieve telemetry metrics using FastAPI REST endpoint or in-process fallback."""
+    try:
+        resp = requests.get(f"{BACKEND_URL}/analytics", timeout=3)
+        if resp.status_code == 200:
+            return resp.json()
+    except Exception:
+        pass
+
+    from backend.agent.orchestrator import orchestrator
+    return orchestrator.telemetry.get_stats()
 
 # ── Design Palette Constants ─────────────────────────────────────────────────────
 HEADER_BLUE = "#4E7CFF"
@@ -739,28 +795,21 @@ with tab_studio:
                 }
                 with st.spinner(f"Generating verified {difficulty} {sport} batch..."):
                     try:
-                        resp = requests.post(
-                            f"{BACKEND_URL}/generate/batch",
-                            json={
-                                "sport": sport,
-                                "difficulty": difficulty,
-                                "count": 5,
-                                "content_types": active_types,
-                                "topic_hint": topic_hint if topic_hint.strip() else None,
-                            },
-                            timeout=120,
+                        items = fetch_batch(
+                            sport=sport,
+                            difficulty=difficulty,
+                            count=5,
+                            active_types=active_types,
+                            topic_hint=topic_hint,
                         )
-                        if resp.status_code == 200:
-                            data = resp.json()
-                            st.session_state.batch_items = data.get("items", [])
+                        if items:
+                            st.session_state.batch_items = items
                             st.session_state.current_idx = 0
                             st.rerun()
                         else:
-                            st.error(f"Backend error {resp.status_code}: {resp.text}")
-                    except requests.exceptions.ReadTimeout:
-                        st.error("⏳ Batch generation timed out awaiting rate-pacing slots. Please retry.")
+                            st.error("No items returned from agent. Please retry.")
                     except Exception as err:
-                        st.error(f"❌ Connection to backend failed: {err}")
+                        st.error(f"❌ Generation error: {err}")
 
         with gen_col2:
             if st.button("↻ Regenerate current", use_container_width=True, disabled=not st.session_state.batch_items):
@@ -771,26 +820,19 @@ with tab_studio:
                 
                 with st.spinner(f"Regenerating {target_type}..."):
                     try:
-                        resp = requests.post(
-                            f"{BACKEND_URL}/regenerate/item",
-                            json={
-                                "sport": cur_item.get("sport", sport),
-                                "difficulty": cur_item.get("difficulty", difficulty),
-                                "content_type": target_type,
-                                "topic_hint": topic_hint if topic_hint.strip() else None,
-                            },
-                            timeout=60,
+                        new_wrapper = fetch_regenerate_item(
+                            sport=cur_item.get("sport", sport),
+                            difficulty=cur_item.get("difficulty", difficulty),
+                            target_type=target_type,
+                            topic_hint=topic_hint,
                         )
-                        if resp.status_code == 200:
-                            new_wrapper = resp.json().get("item")
+                        if new_wrapper:
                             st.session_state.batch_items[cur_idx] = new_wrapper
                             st.rerun()
                         else:
-                            st.error(f"Error {resp.status_code}: {resp.text}")
-                    except requests.exceptions.ReadTimeout:
-                        st.error("⏳ Regeneration timed out awaiting rate-pacing slots. Please retry.")
+                            st.error("Failed to generate replacement card.")
                     except Exception as err:
-                        st.error(f"Failed to regenerate: {err}")
+                        st.error(f"❌ Failed to regenerate: {err}")
 
         # Batch Strip Navigation
         if st.session_state.batch_items:
@@ -874,92 +916,88 @@ with tab_analytics:
     st.caption("Live telemetry metrics capturing anti-hallucination verification loops, semantic deduplication, and platform surface distributions.")
 
     try:
-        analytics_resp = requests.get(f"{BACKEND_URL}/analytics", timeout=5)
-        if analytics_resp.status_code == 200:
-            stats = analytics_resp.json()
+        stats = fetch_analytics() or {}
 
-            # KPI Grid
-            kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-            with kpi1:
-                st.markdown(
-                    f"""
-                    <div class="kpi-card">
-                        <div class="kpi-val">{stats.get('total_items_generated', 0)}</div>
-                        <div class="kpi-label">Items Generated</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-            with kpi2:
-                st.markdown(
-                    f"""
-                    <div class="kpi-card">
-                        <div class="kpi-val">{stats.get('grounding_success_rate_pct', 100)}%</div>
-                        <div class="kpi-label">Grounding Verification</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-            with kpi3:
-                st.markdown(
-                    f"""
-                    <div class="kpi-card">
-                        <div class="kpi-val">{stats.get('grounded_first_try', 0)} / {stats.get('grounded_after_retry', 0)}</div>
-                        <div class="kpi-label">1st Try vs Retry</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-            with kpi4:
-                st.markdown(
-                    f"""
-                    <div class="kpi-card">
-                        <div class="kpi-val">{stats.get('dedup_rejections', 0)}</div>
-                        <div class="kpi-label">Duplicates Filtered</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-
-            st.markdown("<br>", unsafe_allow_html=True)
-
-            # Distribution Breakdown Charts
-            chart_col1, chart_col2 = st.columns(2)
-            with chart_col1:
-                st.markdown("#### 🌐 Retrieval Knowledge Sources")
-                sources_data = stats.get("sources", {})
-                if sources_data and any(sources_data.values()):
-                    df_sources = pd.DataFrame(
-                        list(sources_data.items()),
-                        columns=["Source", "Count"],
-                    ).set_index("Source")
-                    st.bar_chart(df_sources, color="#8B5CF6")
-                else:
-                    st.info("Generate content to populate source metrics.")
-
-            with chart_col2:
-                st.markdown("#### 📱 Instagram Platform Surface Placement")
-                surfaces_data = stats.get("surfaces", {})
-                if surfaces_data and any(surfaces_data.values()):
-                    df_surfaces = pd.DataFrame(
-                        list(surfaces_data.items()),
-                        columns=["Surface", "Count"],
-                    ).set_index("Surface")
-                    st.bar_chart(df_surfaces, color="#4E7CFF")
-                else:
-                    st.info("Generate content to populate platform surface metrics.")
-
-            # Architectural Note
+        # KPI Grid
+        kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+        with kpi1:
             st.markdown(
-                """
-                ---
-                ##### 🛡️ How Anti-Hallucination & Deduplication Work Behind the Scenes:
-                1. **2-Stage Grounding Verification:** Every generated factual claim is string/fuzzy-checked against retrieved context. If ungrounded, an automatic corrective prompt is triggered. If still ungrounded, the item is discarded and replaced.
-                2. **Cosine Semantic Deduplication:** Every accepted item is embedded and indexed in ChromaDB. New candidate questions with cosine similarity > 0.90 are automatically rejected and regenerated.
-                """
+                f"""
+                <div class="kpi-card">
+                    <div class="kpi-val">{stats.get('total_items_generated', 0)}</div>
+                    <div class="kpi-label">Items Generated</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
             )
-        else:
-            st.error("Failed to load telemetry stats from backend.")
+        with kpi2:
+            st.markdown(
+                f"""
+                <div class="kpi-card">
+                    <div class="kpi-val">{stats.get('grounding_success_rate_pct', 100)}%</div>
+                    <div class="kpi-label">Grounding Verification</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with kpi3:
+            st.markdown(
+                f"""
+                <div class="kpi-card">
+                    <div class="kpi-val">{stats.get('grounded_first_try', 0)} / {stats.get('grounded_after_retry', 0)}</div>
+                    <div class="kpi-label">1st Try vs Retry</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with kpi4:
+            st.markdown(
+                f"""
+                <div class="kpi-card">
+                    <div class="kpi-val">{stats.get('dedup_rejections', 0)}</div>
+                    <div class="kpi-label">Duplicates Filtered</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # Distribution Breakdown Charts
+        chart_col1, chart_col2 = st.columns(2)
+        with chart_col1:
+            st.markdown("#### 🌐 Retrieval Knowledge Sources")
+            sources_data = stats.get("sources", {})
+            if sources_data and any(sources_data.values()):
+                df_sources = pd.DataFrame(
+                    list(sources_data.items()),
+                    columns=["Source", "Count"],
+                ).set_index("Source")
+                st.bar_chart(df_sources, color="#8B5CF6")
+            else:
+                st.info("Generate content to populate source metrics.")
+
+        with chart_col2:
+            st.markdown("#### 📱 Instagram Platform Surface Placement")
+            surfaces_data = stats.get("surfaces", {})
+            if surfaces_data and any(surfaces_data.values()):
+                df_surfaces = pd.DataFrame(
+                    list(surfaces_data.items()),
+                    columns=["Surface", "Count"],
+                ).set_index("Surface")
+                st.bar_chart(df_surfaces, color="#4E7CFF")
+            else:
+                st.info("Generate content to populate platform surface metrics.")
+
+        # Architectural Note
+        st.markdown(
+            """
+            ---
+            ##### 🛡️ How Anti-Hallucination & Deduplication Work Behind the Scenes:
+            1. **2-Stage Grounding Verification:** Every generated factual claim is string/fuzzy-checked against retrieved context. If ungrounded, an automatic corrective prompt is triggered. If still ungrounded, the item is discarded and replaced.
+            2. **Cosine Semantic Deduplication:** Every accepted item is embedded and indexed in ChromaDB. New candidate questions with cosine similarity > 0.90 are automatically rejected and regenerated.
+            """
+        )
     except Exception as e:
-        st.warning(f"Could not connect to live backend analytics endpoint: {e}. Start backend with `python3 -m uvicorn backend.main:app --port 8000`.")
+        st.warning(f"Could not load analytics: {e}")
 
