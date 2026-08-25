@@ -7,7 +7,9 @@ and persistent semantic deduplication across all 5 engagement content types.
 
 import logging
 import random
+import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 from backend.agent.schemas import (
@@ -362,7 +364,7 @@ class Orchestrator:
         content_types: Optional[List[str]] = None,
         topic_hint: Optional[str] = None,
     ) -> List[BatchItemWrapper]:
-        """Generate a complete batch of 4-5 items, maintaining target count resiliently."""
+        """Generate a complete batch of items concurrently in parallel with high throughput."""
         available_types = content_types or [
             "MCQ",
             "True/False",
@@ -371,14 +373,12 @@ class Orchestrator:
             "Guess the Number",
         ]
         
-        assigned_types = []
-        for i in range(count):
-            assigned_types.append(available_types[i % len(available_types)])
+        assigned_types = [available_types[i % len(available_types)] for i in range(count)]
+        start_time = time.time()
+        logger.info(f"🚀 Starting parallel batch generation ({count} items) for {sport} ({difficulty})...")
 
-        batch_items: List[BatchItemWrapper] = []
-
-        for idx, c_type in enumerate(assigned_types):
-            logger.info(f"Generating batch item {idx+1}/{count}: {c_type} for {sport} ({difficulty})")
+        def _generate_indexed_item(idx: int, c_type: str) -> BatchItemWrapper:
+            logger.info(f"Generating item {idx+1}/{count}: {c_type} for {sport} ({difficulty})")
             try:
                 item_payload = self.generate_single_item(
                     sport=sport,
@@ -386,12 +386,11 @@ class Orchestrator:
                     content_type=c_type,
                     topic_hint=topic_hint,
                 )
-                wrapper = BatchItemWrapper(
+                return BatchItemWrapper(
                     id=f"item_{idx}_{uuid.uuid4().hex[:6]}",
                     content_type=c_type,
                     item=item_payload,
                 )
-                batch_items.append(wrapper)
             except Exception as e:
                 logger.error(f"Failed to generate item {idx+1} ({c_type}): {e}. Attempting replacement fallback...")
                 try:
@@ -401,15 +400,14 @@ class Orchestrator:
                         content_type="MCQ",
                         topic_hint=topic_hint,
                     )
-                    wrapper = BatchItemWrapper(
+                    return BatchItemWrapper(
                         id=f"item_{idx}_fallback_{uuid.uuid4().hex[:6]}",
                         content_type="MCQ",
                         item=fallback_item,
                     )
-                    batch_items.append(wrapper)
                 except Exception as fatal_e:
                     logger.error(f"Fatal fallback error for item {idx+1}: {fatal_e}")
-                    error_wrapper = BatchItemWrapper(
+                    return BatchItemWrapper(
                         id=f"item_{idx}_error_{uuid.uuid4().hex[:6]}",
                         content_type=c_type,
                         item=ItemErrorSchema(
@@ -421,8 +419,15 @@ class Orchestrator:
                             platform_surface=get_platform_surface(c_type, difficulty),
                         ),
                     )
-                    batch_items.append(error_wrapper)
 
+        # Execute items concurrently in parallel
+        workers = min(count, 8)
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = [executor.submit(_generate_indexed_item, i, c_type) for i, c_type in enumerate(assigned_types)]
+            batch_items = [f.result() for f in futures]
+
+        elapsed = time.time() - start_time
+        logger.info(f"⚡ Batch generation of {count} items completed in {elapsed:.2f}s!")
         return batch_items
 
     def regenerate_single_item(

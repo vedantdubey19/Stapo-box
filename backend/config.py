@@ -19,18 +19,22 @@ class Settings(BaseSettings):
     )
     GEMINI_API_KEY: str = Field(
         default="",
-        description="Google Gemini API key",
+        description="Primary Google Gemini API key (supports comma-separated list of keys)",
+    )
+    GEMINI_API_KEY_2: str = Field(
+        default="",
+        description="Secondary Google Gemini API key for dual-API load balancing and enhanced speed",
     )
     GEMINI_MODEL: str = Field(
-        default="gemini-2.0-flash",
-        description="Gemini model identifier",
+        default="gemini-flash-lite-latest",
+        description="Gemini model identifier (e.g. gemini-flash-lite-latest, gemini-2.5-flash)",
     )
     LLM_MAX_RPM: int = Field(
-        default=12,
-        description="Maximum requests per minute for active LLM provider (client-side rate limiter)",
+        default=30,
+        description="Maximum requests per minute per key (client-side rate limiter)",
     )
     GEMINI_MAX_RPM: int = Field(
-        default=12,
+        default=30,
         description="Alias for Gemini RPM ceiling",
     )
     OPENAI_API_KEY: str = Field(
