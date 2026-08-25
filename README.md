@@ -224,19 +224,22 @@ pytest tests/ -v
 
 *An honest engineering assessment of trade-offs and areas for production enhancement:*
 
-1. **Static Seed Dataset Scope:**
+1. **Embedded Story Preview Iframe State Reset:**
+   - *Current:* Streamlit reruns (`st.rerun()`) reload the embedded `st.components.v1.html` iframe, resetting in-progress visual interactions (e.g. a half-dragged slider or an unrevealed quiz option) when navigating between batch items or regenerating.
+   - *Production Improvement:* In a decoupled React/Next.js frontend, story cards retain local component state across client-side route transitions and batch mutations.
+2. **Static Seed Dataset Scope:**
    - *Current:* 90 curated seed facts across 5 sports (18 facts each) stored in `data/seed_facts/*.json`.
    - *Production Improvement:* Connect automated scrapers to official sports feeds (ESPN API, Sportmonks, Cricinfo) to continuously hydrate the ChromaDB knowledge base.
-2. **Grounding Verification Approach:**
+3. **Grounding Verification Approach:**
    - *Current:* High-performance deterministic substring, `RapidFuzz` token-set ratio, and numeric proximity matching.
    - *Production Improvement:* Integrate a lightweight Natural Language Inference (NLI) cross-encoder (e.g. `DeBERTa-v3-nli`) for deep semantic entailment on complex multi-hop claims without LLM overhead.
-3. **Retrieval Caching:**
+4. **Retrieval Caching:**
    - *Current:* Live queries are made directly to Tavily Web Search when recency flags or fallback conditions trigger.
    - *Production Improvement:* Add a Redis TTL caching layer for popular sports queries to minimize API cost and latency.
-4. **Export Formats:**
+5. **Export Formats:**
    - *Current:* JSON export and clipboard copying.
    - *Production Improvement:* Provide direct CSV / Buffer / Hootsuite CSV scheduling templates and native image card rendering (Pillow/Canvas) for direct Story sticker overlay export.
-5. **Provider Rate Pacing & Throughput:**
+6. **Provider Rate Pacing & Throughput:**
    - *Current:* Gemini free-tier is rate-limited to 15 RPM; the client enforces a client-side sliding window limiter (12 RPM) with exponential backoff. This ensures zero unhandled 429 errors, but increases batch generation latency under rapid sequential requests.
    - *Production Improvement:* Upgrading to Gemini Pay-as-you-go (Tier 1, 1000 RPM) or swapping `LLM_PROVIDER=openai`/`claude` removes the throughput bottleneck and enables sub-5s parallel batch generation.
 
