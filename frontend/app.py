@@ -34,22 +34,23 @@ st.markdown(
     .item-card {
         background-color: #1E1E2E;
         border-radius: 12px;
-        padding: 24px;
+        padding: 20px;
         border: 1px solid #313244;
-        margin-bottom: 20px;
+        margin-bottom: 16px;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
     .card-title {
-        font-size: 1.25rem;
+        font-size: 1.15rem;
         font-weight: 700;
         color: #CDD6F4;
-        margin-bottom: 16px;
+        margin-bottom: 14px;
+        line-height: 1.4;
     }
     .option-pill {
-        padding: 10px 16px;
+        padding: 8px 14px;
         border-radius: 8px;
-        margin-bottom: 8px;
-        font-size: 0.95rem;
+        margin-bottom: 6px;
+        font-size: 0.92rem;
         font-weight: 500;
     }
     .option-default {
@@ -67,7 +68,7 @@ st.markdown(
         display: inline-block;
         padding: 4px 10px;
         border-radius: 6px;
-        font-size: 0.78rem;
+        font-size: 0.76rem;
         font-weight: 700;
         margin-right: 6px;
         text-transform: uppercase;
@@ -82,29 +83,29 @@ st.markdown(
     .badge-type { background-color: #2b3a4a; color: #89B4FA; border: 1px solid #89B4FA; }
     .this-that-container {
         display: flex;
-        gap: 16px;
-        margin: 16px 0;
+        gap: 12px;
+        margin: 12px 0;
     }
     .this-that-box {
         flex: 1;
-        padding: 18px;
-        border-radius: 10px;
+        padding: 14px;
+        border-radius: 8px;
         text-align: center;
         background: #181825;
         border: 2px solid #89B4FA;
         color: #CDD6F4;
-        font-size: 1.1rem;
+        font-size: 1rem;
         font-weight: 700;
     }
     .number-highlight {
-        font-size: 1.8rem;
+        font-size: 1.5rem;
         font-weight: 800;
         color: #F9E2AF;
-        padding: 12px 20px;
+        padding: 10px 16px;
         background: #181825;
         border-radius: 8px;
         display: inline-block;
-        margin: 10px 0;
+        margin: 8px 0;
         border: 1px dashed #F9E2AF;
     }
     </style>
@@ -115,9 +116,15 @@ st.markdown(
 # ── Header ──────────────────────────────────────────────────────────────────────
 st.markdown('<div class="main-title">⚡ StapuBox Sports Engagement Agent</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="subtitle">AI-powered, grounded Instagram trivia, polls, and interactive content generator across 5 sports</div>',
+    '<div class="subtitle">AI-powered, grounded Instagram trivia, polls, and interactive content generator</div>',
     unsafe_allow_html=True,
 )
+
+# ── Session State Initialization ───────────────────────────────────────────────
+if "batch_items" not in st.session_state:
+    st.session_state.batch_items = []
+if "last_params" not in st.session_state:
+    st.session_state.last_params = {}
 
 # ── Sidebar Controls ────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -135,154 +142,225 @@ with st.sidebar:
         index=1,
     )
 
-    content_type = st.selectbox(
-        "Content Type",
-        options=[
-            "MCQ",
-            "True/False",
-            "This-or-That",
-            "Fill in the Blank",
-            "Guess the Number",
-        ],
-        index=0,
-    )
+    gen_mode = st.radio("Generation Mode", ["Mixed Batch (5 Items)", "Single Content Type"], index=0)
 
-    topic_hint = st.text_input("Optional Topic / Recency Hint (e.g. '2024 champions', 'World Cup')", "")
+    selected_types = []
+    single_type = "MCQ"
+    if gen_mode == "Single Content Type":
+        single_type = st.selectbox(
+            "Content Type",
+            options=["MCQ", "True/False", "This-or-That", "Fill in the Blank", "Guess the Number"],
+            index=0,
+        )
+        selected_types = [single_type]
+    else:
+        selected_types = st.multiselect(
+            "Include Content Types",
+            options=["MCQ", "True/False", "This-or-That", "Fill in the Blank", "Guess the Number"],
+            default=["MCQ", "True/False", "This-or-That", "Fill in the Blank", "Guess the Number"],
+        )
 
-    generate_btn = st.button(f"🚀 Generate {content_type}", type="primary", use_container_width=True)
+    topic_hint = st.text_input("Optional Focus / Recency Hint", "")
 
-# ── Session State Initialization ───────────────────────────────────────────────
-if "current_item" not in st.session_state:
-    st.session_state.current_item = None
-if "current_type" not in st.session_state:
-    st.session_state.current_type = "MCQ"
+    generate_btn = st.button("🚀 Generate Content", type="primary", use_container_width=True)
 
-# ── Main Content Action ─────────────────────────────────────────────────────────
+# ── Batch Generation Handler ────────────────────────────────────────────────────
 if generate_btn:
-    with st.spinner(f"Generating verified {difficulty} {sport} {content_type}..."):
+    st.session_state.last_params = {
+        "sport": sport,
+        "difficulty": difficulty,
+        "types": selected_types or ["MCQ"],
+        "topic_hint": topic_hint,
+    }
+
+    with st.spinner(f"Generating verified {difficulty} {sport} content batch..."):
         try:
-            resp = requests.post(
-                f"{BACKEND_URL}/generate/item",
-                json={
-                    "sport": sport,
-                    "difficulty": difficulty,
-                    "content_type": content_type,
-                    "topic_hint": topic_hint if topic_hint.strip() else None,
-                },
-                timeout=20,
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                st.session_state.current_item = data.get("item")
-                st.session_state.current_type = data.get("content_type", content_type)
-                st.success("✨ Content generated successfully!")
+            if gen_mode == "Mixed Batch (5 Items)":
+                resp = requests.post(
+                    f"{BACKEND_URL}/generate/batch",
+                    json={
+                        "sport": sport,
+                        "difficulty": difficulty,
+                        "count": 5,
+                        "content_types": selected_types or ["MCQ"],
+                        "topic_hint": topic_hint if topic_hint.strip() else None,
+                    },
+                    timeout=45,
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    st.session_state.batch_items = data.get("items", [])
+                    st.success(f"✨ Successfully generated {len(st.session_state.batch_items)} items!")
+                else:
+                    st.error(f"Error {resp.status_code}: {resp.text}")
             else:
-                st.error(f"Error {resp.status_code}: {resp.text}")
-        except requests.exceptions.ConnectionError:
-            st.error("❌ Could not connect to FastAPI backend. Ensure server is running on port 8000.")
+                resp = requests.post(
+                    f"{BACKEND_URL}/generate/item",
+                    json={
+                        "sport": sport,
+                        "difficulty": difficulty,
+                        "content_type": single_type,
+                        "topic_hint": topic_hint if topic_hint.strip() else None,
+                    },
+                    timeout=20,
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    st.session_state.batch_items = [{
+                        "id": "single_0",
+                        "content_type": data.get("content_type"),
+                        "item": data.get("item"),
+                    }]
+                    st.success("✨ Generated single item successfully!")
+                else:
+                    st.error(f"Error {resp.status_code}: {resp.text}")
         except Exception as err:
             st.error(f"❌ Generation request failed: {err}")
 
-# ── Render Card by Content Type ─────────────────────────────────────────────────
-if st.session_state.current_item:
-    item = st.session_state.current_item
-    c_type = st.session_state.current_type
+# ── Render Batch Actions & Items ────────────────────────────────────────────────
+if st.session_state.batch_items:
+    top_col1, top_col2, top_col3 = st.columns([2, 1, 1])
+    with top_col1:
+        st.subheader(f"📋 Generated Batch ({len(st.session_state.batch_items)} Items)")
+    with top_col2:
+        if st.button("🔄 Regenerate Full Batch", use_container_width=True):
+            params = st.session_state.last_params
+            with st.spinner("Regenerating full batch..."):
+                try:
+                    resp = requests.post(
+                        f"{BACKEND_URL}/generate/batch",
+                        json={
+                            "sport": params.get("sport", "Cricket"),
+                            "difficulty": params.get("difficulty", "Medium"),
+                            "count": 5,
+                            "content_types": params.get("types", ["MCQ"]),
+                            "topic_hint": params.get("topic_hint"),
+                        },
+                        timeout=45,
+                    )
+                    if resp.status_code == 200:
+                        st.session_state.batch_items = resp.json().get("items", [])
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"Regeneration failed: {e}")
+    with top_col3:
+        batch_json_str = json.dumps([b["item"] for b in st.session_state.batch_items], indent=2)
+        st.download_button(
+            label="💾 Export Batch JSON",
+            data=batch_json_str,
+            file_name=f"sports_batch_{sport.lower()}.json",
+            mime="application/json",
+            use_container_width=True,
+        )
 
-    diff = item.get("difficulty", "Medium")
-    diff_class = f"badge-{diff.lower()}"
-    surface = item.get("platform_surface", "Story")
-    source = item.get("source", "vector_db")
+    # Render each item card
+    for idx, wrapper in enumerate(st.session_state.batch_items):
+        item = wrapper["item"]
+        c_type = wrapper["content_type"]
+        item_id = wrapper["id"]
 
-    st.markdown('<div class="item-card">', unsafe_allow_html=True)
+        diff = item.get("difficulty", "Medium")
+        diff_class = f"badge-{diff.lower()}"
+        surface = item.get("platform_surface", "Story")
+        source = item.get("source", "vector_db")
 
-    # Header Badges
-    badge_html = f"""
-    <div style="margin-bottom: 14px;">
-        <span class="badge badge-type">🏷️ {c_type}</span>
-        <span class="badge {diff_class}">{diff}</span>
-        <span class="badge badge-surface">📱 {surface}</span>
-    """
-    if c_type == "This-or-That":
-        badge_html += '<span class="badge badge-opinion">🗳️ Opinion Poll</span>'
-    else:
-        badge_html += f'<span class="badge badge-source">📚 {source}</span>'
-        badge_html += '<span class="badge badge-grounded">✅ Verified Grounded</span>'
-    badge_html += "</div>"
-    st.markdown(badge_html, unsafe_allow_html=True)
+        st.markdown('<div class="item-card">', unsafe_allow_html=True)
 
-    # 1. MCQ Renderer
-    if c_type == "MCQ":
-        st.markdown(f'<div class="card-title">{item["question"]}</div>', unsafe_allow_html=True)
-        for key, text in item["options"].items():
-            is_correct = key == item["correct_answer"]
-            cls = "option-correct" if is_correct else "option-default"
-            marker = " ✅ (Correct Answer)" if is_correct else ""
+        header_col, action_col = st.columns([5, 1])
+        with header_col:
+            badge_html = f"""
+            <div style="margin-bottom: 10px;">
+                <span class="badge badge-type">#{idx+1} {c_type}</span>
+                <span class="badge {diff_class}">{diff}</span>
+                <span class="badge badge-surface">📱 {surface}</span>
+            """
+            if c_type == "This-or-That":
+                badge_html += '<span class="badge badge-opinion">🗳️ Opinion Poll</span>'
+            else:
+                badge_html += f'<span class="badge badge-source">📚 {source}</span>'
+                badge_html += '<span class="badge badge-grounded">✅ Verified Grounded</span>'
+            badge_html += "</div>"
+            st.markdown(badge_html, unsafe_allow_html=True)
+
+        with action_col:
+            if st.button(f"🔄 Redo", key=f"regen_btn_{item_id}", help="Regenerate only this item"):
+                with st.spinner("Regenerating..."):
+                    try:
+                        resp = requests.post(
+                            f"{BACKEND_URL}/regenerate/item",
+                            json={
+                                "sport": item.get("sport", sport),
+                                "difficulty": diff,
+                                "content_type": c_type,
+                                "topic_hint": topic_hint if topic_hint.strip() else None,
+                            },
+                            timeout=25,
+                        )
+                        if resp.status_code == 200:
+                            new_wrapper = resp.json().get("item")
+                            st.session_state.batch_items[idx] = new_wrapper
+                            st.rerun()
+                        else:
+                            st.error(f"Error: {resp.text}")
+                    except Exception as err:
+                        st.error(f"Failed to regenerate item: {err}")
+
+        # Item Card Content
+        if c_type == "MCQ":
+            st.markdown(f'<div class="card-title">{item["question"]}</div>', unsafe_allow_html=True)
+            for key, text in item["options"].items():
+                is_correct = key == item["correct_answer"]
+                cls = "option-correct" if is_correct else "option-default"
+                marker = " ✅ (Correct Answer)" if is_correct else ""
+                st.markdown(f'<div class="option-pill {cls}"><strong>{key}:</strong> {text}{marker}</div>', unsafe_allow_html=True)
+
+        elif c_type == "True/False":
+            st.markdown(f'<div class="card-title">"{item["statement"]}"</div>', unsafe_allow_html=True)
+            ans_label = "TRUE" if item["correct_answer"] else "FALSE"
+            st.markdown(f'<div class="option-pill option-correct"><strong>Correct Answer:</strong> {ans_label}</div>', unsafe_allow_html=True)
+
+        elif c_type == "This-or-That":
+            st.markdown(f'<div class="card-title">🗳️ {item["prompt"]}</div>', unsafe_allow_html=True)
+            opt1, opt2 = item["options"][0], item["options"][1]
             st.markdown(
-                f'<div class="option-pill {cls}"><strong>{key}:</strong> {text}{marker}</div>',
+                f"""
+                <div class="this-that-container">
+                    <div class="this-that-box">🅰️ {opt1}</div>
+                    <div style="font-size: 1.4rem; font-weight: 800; color: #89B4FA; align-self: center;">VS</div>
+                    <div class="this-that-box">🅱️ {opt2}</div>
+                </div>
+                """,
                 unsafe_allow_html=True,
             )
 
-    # 2. True / False Renderer
-    elif c_type == "True/False":
-        st.markdown(f'<div class="card-title">"{item["statement"]}"</div>', unsafe_allow_html=True)
-        ans_bool = item["correct_answer"]
-        ans_label = "TRUE" if ans_bool else "FALSE"
-        cls = "option-correct"
-        st.markdown(
-            f'<div class="option-pill {cls}"><strong>Correct Answer:</strong> {ans_label}</div>',
-            unsafe_allow_html=True,
-        )
+        elif c_type == "Fill in the Blank":
+            st.markdown(f'<div class="card-title">{item["sentence"]}</div>', unsafe_allow_html=True)
+            for opt in item["options"]:
+                is_correct = opt == item["correct_answer"]
+                cls = "option-correct" if is_correct else "option-default"
+                marker = " ✅ (Correct Answer)" if is_correct else ""
+                st.markdown(f'<div class="option-pill {cls}">{opt}{marker}</div>', unsafe_allow_html=True)
 
-    # 3. This-or-That Renderer
-    elif c_type == "This-or-That":
-        st.markdown(f'<div class="card-title">🗳️ {item["prompt"]}</div>', unsafe_allow_html=True)
-        opt1, opt2 = item["options"][0], item["options"][1]
-        st.markdown(
-            f"""
-            <div class="this-that-container">
-                <div class="this-that-box">🅰️ {opt1}</div>
-                <div style="font-size: 1.5rem; font-weight: 800; color: #89B4FA; align-self: center;">VS</div>
-                <div class="this-that-box">🅱️ {opt2}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    # 4. Fill in the Blank Renderer
-    elif c_type == "Fill in the Blank":
-        st.markdown(f'<div class="card-title">{item["sentence"]}</div>', unsafe_allow_html=True)
-        for opt in item["options"]:
-            is_correct = opt == item["correct_answer"]
-            cls = "option-correct" if is_correct else "option-default"
-            marker = " ✅ (Correct Answer)" if is_correct else ""
+        elif c_type == "Guess the Number":
+            st.markdown(f'<div class="card-title">🔢 {item["question"]}</div>', unsafe_allow_html=True)
             st.markdown(
-                f'<div class="option-pill {cls}">{opt}{marker}</div>',
+                f'<div class="number-highlight">Target: {item["target_number"]} (± {item.get("tolerance", 0)})</div>',
                 unsafe_allow_html=True,
             )
 
-    # 5. Guess the Number Renderer
-    elif c_type == "Guess the Number":
-        st.markdown(f'<div class="card-title">🔢 {item["question"]}</div>', unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="number-highlight">Target: {item["target_number"]} (± {item.get("tolerance", 0)})</div>',
-            unsafe_allow_html=True,
-        )
+        if "explanation" in item:
+            st.markdown(
+                f"""
+                <div style="margin-top: 12px; padding: 10px; background-color: #181825; border-radius: 8px; border-left: 3px solid #89B4FA; font-size: 0.88rem; color: #CDD6F4;">
+                    💡 <strong>Explanation:</strong> {item['explanation']}
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
-    # Explanation section (for factual types)
-    if "explanation" in item:
-        st.markdown(
-            f"""
-            <div style="margin-top: 16px; padding: 12px; background-color: #181825; border-radius: 8px; border-left: 3px solid #89B4FA; font-size: 0.9rem; color: #CDD6F4;">
-                💡 <strong>Explanation:</strong> {item['explanation']}
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    # Raw JSON
-    with st.expander("🔍 Inspect Schema JSON"):
-        st.json(item)
+    with st.expander("🔍 Inspect Full Batch JSON"):
+        st.json([b["item"] for b in st.session_state.batch_items])
 else:
-    st.info("👈 Select a sport, difficulty, and content type on the left, then click **Generate** to create your item.")
+    st.info("👈 Select your settings on the left and click **Generate Content** to create a batch of 5 interactive items.")

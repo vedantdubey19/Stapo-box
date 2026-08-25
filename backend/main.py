@@ -1,6 +1,7 @@
 """FastAPI application entry point.
 
-Exposes REST endpoints for sports engagement content generation.
+Exposes REST endpoints for single item generation, batch generation,
+per-item regeneration, full batch regeneration, and telemetry analytics.
 """
 
 import logging
@@ -9,7 +10,14 @@ from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.config import settings
-from backend.agent.schemas import GenerateItemRequest, GenerateItemResponse, MCQSchema
+from backend.agent.schemas import (
+    GenerateItemRequest,
+    GenerateItemResponse,
+    GenerateBatchRequest,
+    GenerateBatchResponse,
+    RegenerateItemRequest,
+    RegenerateItemResponse,
+)
 from backend.agent.orchestrator import orchestrator
 
 logging.basicConfig(
@@ -35,7 +43,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Enable CORS for Streamlit / external clients
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -57,6 +64,12 @@ def health_check():
     }
 
 
+@app.get("/analytics", tags=["Telemetry"])
+def get_analytics():
+    """Return runtime telemetry statistics (grounding rate, source distribution, dedup counts)."""
+    return orchestrator.telemetry.get_stats()
+
+
 @app.post("/generate/item", response_model=GenerateItemResponse, tags=["Generation"])
 def generate_single_item(payload: GenerateItemRequest):
     """Generate a single validated sports engagement item."""
@@ -76,6 +89,7 @@ def generate_single_item(payload: GenerateItemRequest):
             sport=payload.sport,
             difficulty=payload.difficulty,
             content_type=payload.content_type,
+            topic_hint=payload.topic_hint,
         )
         return GenerateItemResponse(
             success=True,
@@ -88,3 +102,68 @@ def generate_single_item(payload: GenerateItemRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Content generation failed: {str(e)}",
         )
+
+
+@app.post("/generate/batch", response_model=GenerateBatchResponse, tags=["Generation"])
+def generate_batch(payload: GenerateBatchRequest):
+    """Generate a batch of 4-5 items with mixed or uniform content types."""
+    if payload.sport not in settings.ALLOWED_SPORTS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid sport '{payload.sport}'. Must be one of {settings.ALLOWED_SPORTS}",
+        )
+    if payload.difficulty not in settings.ALLOWED_DIFFICULTIES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid difficulty '{payload.difficulty}'. Must be one of {settings.ALLOWED_DIFFICULTIES}",
+        )
+
+    try:
+        items = orchestrator.generate_batch(
+            sport=payload.sport,
+            difficulty=payload.difficulty,
+            count=payload.count,
+            content_types=payload.content_types,
+            topic_hint=payload.topic_hint,
+        )
+        return GenerateBatchResponse(
+            success=True,
+            sport=payload.sport,
+            difficulty=payload.difficulty,
+            total_items=len(items),
+            items=items,
+        )
+    except Exception as e:
+        logger.error(f"Failed to generate batch: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Batch generation failed: {str(e)}",
+        )
+
+
+@app.post("/regenerate/item", response_model=RegenerateItemResponse, tags=["Generation"])
+def regenerate_item(payload: RegenerateItemRequest):
+    """Regenerate a single item in place."""
+    try:
+        item = orchestrator.regenerate_single_item(
+            sport=payload.sport,
+            difficulty=payload.difficulty,
+            content_type=payload.content_type,
+            topic_hint=payload.topic_hint,
+        )
+        return RegenerateItemResponse(
+            success=True,
+            item=item,
+        )
+    except Exception as e:
+        logger.error(f"Failed to regenerate item: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Regeneration failed: {str(e)}",
+        )
+
+
+@app.post("/regenerate/batch", response_model=GenerateBatchResponse, tags=["Generation"])
+def regenerate_batch(payload: GenerateBatchRequest):
+    """Regenerate an entire batch of items."""
+    return generate_batch(payload)

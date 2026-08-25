@@ -61,7 +61,7 @@ def verify_text_grounding(
 
     # Step 2: Check individual key tokens (e.g., player surnames like 'Lara' in 'Brian Lara')
     words = [w for w in re.split(r"\W+", claim_clean) if len(w) > 2]
-    if words and all(w in ctx_clean for w in words):
+    if words and len(words) <= 4 and all(w in ctx_clean for w in words):
         return True, 95.0, f"All key tokens present in context: {words}"
 
     # Step 3: RapidFuzz partial and token set ratio match
@@ -140,4 +140,6 @@ def verify_grounding(
         except (ValueError, TypeError):
             return verify_text_grounding(str(claimed_fact), retrieved_context)
 
-    return verify_text_grounding(str(claimed_fact), retrieved_context)
+    # For True/False full statements, use calibrated sentence threshold (75%)
+    threshold = 75.0 if content_type == "True/False" else 85.0
+    return verify_text_grounding(str(claimed_fact), retrieved_context, threshold=threshold)

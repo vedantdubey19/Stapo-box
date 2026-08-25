@@ -6,9 +6,11 @@ Enforces strict structural rules per Docs/03_RULE_SETS.md §1:
 - This-or-That: 2 options, is_opinion=True, NO correct_answer or grounded field.
 - Fill in the Blank: sentence with single '___' blank marker, 4 options.
 - Guess the Number: question, target_number, tolerance >= 0.
+- Batch generation and regeneration payloads.
 """
 
 from typing import Annotated, Dict, List, Literal, Optional, Union
+import uuid
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
@@ -205,12 +207,22 @@ class GuessNumberSchema(BaseModel):
     )
 
 
-# ── Content Item Union ───────────────────────────────────────────────────────────
+# ── Unified Item Types ───────────────────────────────────────────────────────────
 
-ContentItem = Annotated[
-    Union[MCQSchema, TrueFalseSchema, ThisOrThatSchema, FillBlankSchema, GuessNumberSchema],
-    Field(discriminator=None),
+ContentItemPayload = Union[
+    MCQSchema,
+    TrueFalseSchema,
+    ThisOrThatSchema,
+    FillBlankSchema,
+    GuessNumberSchema,
 ]
+
+
+class BatchItemWrapper(BaseModel):
+    """Container wrapping an individual item within a batch with an identifier."""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4())[:8])
+    content_type: str
+    item: ContentItemPayload
 
 
 # ── API Request & Response Schemas ───────────────────────────────────────────────
@@ -233,5 +245,48 @@ class GenerateItemResponse(BaseModel):
     """Response payload returning a generated item."""
     success: bool = True
     content_type: str
-    item: Union[MCQSchema, TrueFalseSchema, ThisOrThatSchema, FillBlankSchema, GuessNumberSchema]
+    item: ContentItemPayload
+    error: Optional[str] = None
+
+
+class GenerateBatchRequest(BaseModel):
+    """Request payload to generate a batch of 4-5 engagement content items."""
+    sport: str = Field(default="Cricket", description="Sport category")
+    difficulty: Literal["Easy", "Medium", "Hard"] = Field(default="Medium", description="Difficulty level")
+    count: int = Field(default=5, ge=4, le=5, description="Number of items to generate (4 or 5)")
+    content_types: List[str] = Field(
+        default_factory=lambda: [
+            "MCQ",
+            "True/False",
+            "This-or-That",
+            "Fill in the Blank",
+            "Guess the Number",
+        ],
+        description="Types of content to include in batch",
+    )
+    topic_hint: Optional[str] = Field(default=None, description="Optional topic hint")
+
+
+class GenerateBatchResponse(BaseModel):
+    """Response payload returning a batch of items."""
+    success: bool = True
+    sport: str
+    difficulty: str
+    total_items: int
+    items: List[BatchItemWrapper]
+    error: Optional[str] = None
+
+
+class RegenerateItemRequest(BaseModel):
+    """Request payload to regenerate a specific item in a batch."""
+    sport: str = Field(..., description="Sport category")
+    difficulty: Literal["Easy", "Medium", "Hard"] = Field(default="Medium", description="Difficulty level")
+    content_type: str = Field(..., description="Content type to regenerate")
+    topic_hint: Optional[str] = Field(default=None, description="Optional topic hint")
+
+
+class RegenerateItemResponse(BaseModel):
+    """Response payload returning regenerated single item."""
+    success: bool = True
+    item: BatchItemWrapper
     error: Optional[str] = None

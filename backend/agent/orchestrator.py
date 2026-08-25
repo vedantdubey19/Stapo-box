@@ -1,11 +1,13 @@
 """Agent Orchestrator module.
 
 Coordinates prompt generation, retrieval routing (Tavily + ChromaDB),
-LLM invocation, schema validation, grounding verification, and deterministic platform surface tagging
-across all 5 engagement content types.
+LLM invocation, schema validation, grounding verification, platform surface tagging,
+and resilient batch generation across all 5 engagement content types.
 """
 
 import logging
+import random
+import uuid
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 from backend.agent.schemas import (
@@ -14,7 +16,8 @@ from backend.agent.schemas import (
     ThisOrThatSchema,
     FillBlankSchema,
     GuessNumberSchema,
-    ContentItem,
+    BatchItemWrapper,
+    ContentItemPayload,
 )
 from backend.agent.prompts import (
     mcq as mcq_prompt,
@@ -83,7 +86,7 @@ class TelemetryTracker:
 
 
 class Orchestrator:
-    """Core AI agent orchestrating sports content generation across all 5 content types."""
+    """Core AI agent orchestrating sports content generation and batch management."""
 
     def __init__(self):
         self.llm = llm_client
@@ -181,7 +184,7 @@ class Orchestrator:
         content_type: str = "MCQ",
         topic_hint: Optional[str] = None,
         max_attempts: int = 3,
-    ) -> Union[MCQSchema, TrueFalseSchema, ThisOrThatSchema, FillBlankSchema, GuessNumberSchema]:
+    ) -> ContentItemPayload:
         """Generate a single validated, grounding-verified sports content item for any of the 5 types."""
         schema_cls = self._get_schema_class(content_type)
         prompt_builder = self._get_prompt_builder(content_type)
@@ -301,6 +304,86 @@ class Orchestrator:
             item.grounded = True
         self.telemetry.total_generated += 1
         return item
+
+    def generate_batch(
+        self,
+        sport: str,
+        difficulty: str = "Medium",
+        count: int = 5,
+        content_types: Optional[List[str]] = None,
+        topic_hint: Optional[str] = None,
+    ) -> List[BatchItemWrapper]:
+        """Generate a complete batch of 4-5 items, maintaining target count resiliently."""
+        available_types = content_types or [
+            "MCQ",
+            "True/False",
+            "This-or-That",
+            "Fill in the Blank",
+            "Guess the Number",
+        ]
+        
+        # Round-robin type assignment across the batch
+        assigned_types = []
+        for i in range(count):
+            assigned_types.append(available_types[i % len(available_types)])
+
+        batch_items: List[BatchItemWrapper] = []
+
+        for idx, c_type in enumerate(assigned_types):
+            logger.info(f"Generating batch item {idx+1}/{count}: {c_type} for {sport} ({difficulty})")
+            try:
+                item_payload = self.generate_single_item(
+                    sport=sport,
+                    difficulty=difficulty,
+                    content_type=c_type,
+                    topic_hint=topic_hint,
+                )
+                wrapper = BatchItemWrapper(
+                    id=f"item_{idx}_{uuid.uuid4().hex[:6]}",
+                    content_type=c_type,
+                    item=item_payload,
+                )
+                batch_items.append(wrapper)
+            except Exception as e:
+                logger.error(f"Failed to generate item {idx+1} ({c_type}): {e}. Attempting replacement fallback...")
+                # Resilient replacement: Try MCQ fallback so batch size is preserved
+                try:
+                    fallback_item = self.generate_single_item(
+                        sport=sport,
+                        difficulty=difficulty,
+                        content_type="MCQ",
+                        topic_hint=topic_hint,
+                    )
+                    wrapper = BatchItemWrapper(
+                        id=f"item_{idx}_fallback_{uuid.uuid4().hex[:6]}",
+                        content_type="MCQ",
+                        item=fallback_item,
+                    )
+                    batch_items.append(wrapper)
+                except Exception as fatal_e:
+                    logger.error(f"Fatal fallback error: {fatal_e}")
+
+        return batch_items
+
+    def regenerate_single_item(
+        self,
+        sport: str,
+        difficulty: str,
+        content_type: str,
+        topic_hint: Optional[str] = None,
+    ) -> BatchItemWrapper:
+        """Regenerate a single replacement item for in-place card update."""
+        item_payload = self.generate_single_item(
+            sport=sport,
+            difficulty=difficulty,
+            content_type=content_type,
+            topic_hint=topic_hint,
+        )
+        return BatchItemWrapper(
+            id=f"regen_{uuid.uuid4().hex[:6]}",
+            content_type=content_type,
+            item=item_payload,
+        )
 
 
 # Singleton orchestrator instance
