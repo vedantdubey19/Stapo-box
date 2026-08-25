@@ -1,0 +1,128 @@
+[
+  {
+    "id": "cric_e_1",
+    "sport": "Cricket",
+    "difficulty": "Easy",
+    "category": "rules",
+    "fact": "In standard cricket, each bowling over consists of exactly 6 legal deliveries."
+  },
+  {
+    "id": "cric_e_2",
+    "sport": "Cricket",
+    "difficulty": "Easy",
+    "category": "records",
+    "fact": "Sachin Tendulkar is the all-time leading run-scorer in international cricket and the only player to score 100 international centuries."
+  },
+  {
+    "id": "cric_e_3",
+    "sport": "Cricket",
+    "difficulty": "Easy",
+    "category": "history",
+    "fact": "The West Indies won the inaugural Men's Cricket World Cup in 1975, defeating Australia at Lord's."
+  },
+  {
+    "id": "cric_e_4",
+    "sport": "Cricket",
+    "difficulty": "Easy",
+    "category": "rules",
+    "fact": "A batsman can be dismissed in ten official ways in cricket, with Bowled, Caught, and LBW (Leg Before Wicket) being the most common."
+  },
+  {
+    "id": "cric_e_5",
+    "sport": "Cricket",
+    "difficulty": "Easy",
+    "category": "records",
+    "fact": "Virat Kohli holds the record for the most centuries in One Day Internationals (ODIs), scoring his 50th ODI ton during the 2023 World Cup."
+  },
+  {
+    "id": "cric_e_6",
+    "sport": "Cricket",
+    "difficulty": "Easy",
+    "category": "history",
+    "fact": "The historic rivalry between England and Australia in Test cricket is commemorated by a small terracotta urn known as The Ashes."
+  },
+  {
+    "id": "cric_m_1",
+    "sport": "Cricket",
+    "difficulty": "Medium",
+    "category": "records",
+    "fact": "Brian Lara holds the record for the highest individual score in Test cricket history with 400 not out against England at Antigua in 2004."
+  },
+  {
+    "id": "cric_m_2",
+    "sport": "Cricket",
+    "difficulty": "Medium",
+    "category": "records",
+    "fact": "Rohit Sharma holds the record for the highest individual score in ODI cricket, scoring 264 runs off 173 balls against Sri Lanka at Eden Gardens in 2014."
+  },
+  {
+    "id": "cric_m_3",
+    "sport": "Cricket",
+    "difficulty": "Medium",
+    "category": "history",
+    "fact": "India won its first ever ICC Cricket World Cup in 1983 under the captaincy of Kapil Dev, defeating the two-time defending champions West Indies."
+  },
+  {
+    "id": "cric_m_4",
+    "sport": "Cricket",
+    "difficulty": "Medium",
+    "category": "rules",
+    "fact": "The pitch in cricket has a standard length of 22 yards (20.12 meters) between the bowling and batting stumps."
+  },
+  {
+    "id": "cric_m_5",
+    "sport": "Cricket",
+    "difficulty": "Medium",
+    "category": "records",
+    "fact": "Muttiah Muralitharan holds the world record for the highest number of Test wickets with 800 dismissals in 133 matches."
+  },
+  {
+    "id": "cric_m_6",
+    "sport": "Cricket",
+    "difficulty": "Medium",
+    "category": "history",
+    "fact": "The inaugural ICC Men's T20 World Cup was held in South Africa in 2007, with India winning the final against Pakistan in Johannesburg."
+  },
+  {
+    "id": "cric_h_1",
+    "sport": "Cricket",
+    "difficulty": "Hard",
+    "category": "history",
+    "fact": "The first official Test match in cricket history was played between Australia and England at the Melbourne Cricket Ground (MCG) in March 1877, which Australia won by 45 runs."
+  },
+  {
+    "id": "cric_h_2",
+    "sport": "Cricket",
+    "difficulty": "Hard",
+    "category": "records",
+    "fact": "Sir Donald Bradman retired with a Test career batting average of 99.94, needing just 4 runs in his final innings at The Oval in 1948 to average 100, but was dismissed for a duck."
+  },
+  {
+    "id": "cric_h_3",
+    "sport": "Cricket",
+    "difficulty": "Hard",
+    "category": "records",
+    "fact": "Jim Laker of England took 19 wickets for 90 runs against Australia at Old Trafford in 1956, the best bowling analysis in a single Test match."
+  },
+  {
+    "id": "cric_h_4",
+    "sport": "Cricket",
+    "difficulty": "Hard",
+    "category": "rules",
+    "fact": "Under MCC Law 31.7, if a batsman is 'Timed Out', the incoming batter must be ready to face the ball within 3 minutes (or 2 minutes in T20/ODI playing conditions) of the previous dismissal."
+  },
+  {
+    "id": "cric_h_5",
+    "sport": "Cricket",
+    "difficulty": "Hard",
+    "category": "history",
+    "fact": "Only three bowlers in Test history have taken all 10 wickets in an innings: Jim Laker (1956), Anil Kumble (1999), and Ajaz Patel (2021)."
+  },
+  {
+    "id": "cric_h_6",
+    "sport": "Cricket",
+    "difficulty": "Hard",
+    "category": "records",
+    "fact": "Yuvraj Singh hit 6 sixes in an over off Stuart Broad in the 2007 T20 World Cup, scoring the fastest half-century in international cricket in just 12 balls."
+  }
+]

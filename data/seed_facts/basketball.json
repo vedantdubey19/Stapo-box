@@ -1,0 +1,128 @@
+[
+  {
+    "id": "bball_e_1",
+    "sport": "Basketball",
+    "difficulty": "Easy",
+    "category": "rules",
+    "fact": "A standard NBA basketball game consists of 4 quarters of 12 minutes each, totaling 48 minutes of regulation play."
+  },
+  {
+    "id": "bball_e_2",
+    "sport": "Basketball",
+    "difficulty": "Easy",
+    "category": "rules",
+    "fact": "In basketball, a free throw is worth 1 point, a standard field goal is worth 2 points, and a shot made from beyond the three-point arc is worth 3 points."
+  },
+  {
+    "id": "bball_e_3",
+    "sport": "Basketball",
+    "difficulty": "Easy",
+    "category": "history",
+    "fact": "Basketball was invented in December 1891 by Canadian physical education instructor Dr. James Naismith in Springfield, Massachusetts."
+  },
+  {
+    "id": "bball_e_4",
+    "sport": "Basketball",
+    "difficulty": "Easy",
+    "category": "records",
+    "fact": "Michael Jordan led the Chicago Bulls to 6 NBA Championships in the 1990s (two three-peats: 1991-1993 and 1996-1998), winning Finals MVP on all 6 occasions."
+  },
+  {
+    "id": "bball_e_5",
+    "sport": "Basketball",
+    "difficulty": "Easy",
+    "category": "records",
+    "fact": "LeBron James is the all-time leading scorer in NBA history, surpassing Kareem Abdul-Jabbar's longstanding record of 38,387 points in February 2023."
+  },
+  {
+    "id": "bball_e_6",
+    "sport": "Basketball",
+    "difficulty": "Easy",
+    "category": "rules",
+    "fact": "In the NBA, the shot clock gives the offensive team exactly 24 seconds to attempt a field goal that hits the rim."
+  },
+  {
+    "id": "bball_m_1",
+    "sport": "Basketball",
+    "difficulty": "Medium",
+    "category": "records",
+    "fact": "Wilt Chamberlain holds the NBA record for the most points scored in a single game, scoring 100 points for the Philadelphia Warriors against the New York Knicks in March 1962."
+  },
+  {
+    "id": "bball_m_2",
+    "sport": "Basketball",
+    "difficulty": "Medium",
+    "category": "records",
+    "fact": "Stephen Curry holds the all-time NBA record for the most career three-pointers made in regular season history, passing Ray Allen in 2021."
+  },
+  {
+    "id": "bball_m_3",
+    "sport": "Basketball",
+    "difficulty": "Medium",
+    "category": "rules",
+    "fact": "The standard height of a basketball rim above the court floor is exactly 10 feet (3.048 meters)."
+  },
+  {
+    "id": "bball_m_4",
+    "sport": "Basketball",
+    "difficulty": "Medium",
+    "category": "history",
+    "fact": "The Boston Celtics and Los Angeles Lakers are tied for the most NBA championships in history, each with 17 titles (prior to the Celtics' 18th title in 2024)."
+  },
+  {
+    "id": "bball_m_5",
+    "sport": "Basketball",
+    "difficulty": "Medium",
+    "category": "records",
+    "fact": "The Golden State Warriors set the NBA regular-season record with 73 wins and only 9 losses during the 2015-16 season."
+  },
+  {
+    "id": "bball_m_6",
+    "sport": "Basketball",
+    "difficulty": "Medium",
+    "category": "rules",
+    "fact": "In FIBA international basketball, games consist of 4 quarters of 10 minutes each, totaling 40 minutes of regulation play."
+  },
+  {
+    "id": "bball_h_1",
+    "sport": "Basketball",
+    "difficulty": "Hard",
+    "category": "records",
+    "fact": "Klay Thompson holds the NBA record for the most three-pointers made in a single regular-season game, hitting 14 threes for Golden State against Chicago in 2018."
+  },
+  {
+    "id": "bball_h_2",
+    "sport": "Basketball",
+    "difficulty": "Hard",
+    "category": "history",
+    "fact": "The 1992 USA Olympic Men's Basketball Team, known as the 'Dream Team', featured 11 future Hall of Fame players and defeated opponents by an average of 43.8 points."
+  },
+  {
+    "id": "bball_h_3",
+    "sport": "Basketball",
+    "difficulty": "Hard",
+    "category": "records",
+    "fact": "Bill Russell won 11 NBA Championships in his 13 seasons with the Boston Celtics, the most championships won by any player in North American professional sports history."
+  },
+  {
+    "id": "bball_h_4",
+    "sport": "Basketball",
+    "difficulty": "Hard",
+    "category": "rules",
+    "fact": "Under NBA rules, a defensive three-second violation (illegal defense) occurs when a defender remains in the paint for more than 3 seconds without actively guarding an opponent, resulting in a technical free throw."
+  },
+  {
+    "id": "bball_h_5",
+    "sport": "Basketball",
+    "difficulty": "Hard",
+    "category": "history",
+    "fact": "The highest-scoring game in NBA history took place on December 13, 1983, when the Detroit Pistons defeated the Denver Nuggets 186-184 in triple overtime (370 total points)."
+  },
+  {
+    "id": "bball_h_6",
+    "sport": "Basketball",
+    "difficulty": "Hard",
+    "category": "records",
+    "fact": "Kareem Abdul-Jabbar's trademark shot, the 'Skyhook', is widely considered the most unblockable scoring move in basketball history, contributing to his 6 MVP awards."
+  }
+]

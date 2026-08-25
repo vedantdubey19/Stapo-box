@@ -1,0 +1,128 @@
+[
+  {
+    "id": "bad_e_1",
+    "sport": "Badminton",
+    "difficulty": "Easy",
+    "category": "rules",
+    "fact": "A standard professional badminton match is played as the best of three games, with each game played to 21 points using the rally point scoring system."
+  },
+  {
+    "id": "bad_e_2",
+    "sport": "Badminton",
+    "difficulty": "Easy",
+    "category": "rules",
+    "fact": "In badminton, the projectile hit back and forth across the net is called a shuttlecock or birdie, traditionally made with 16 goose feathers."
+  },
+  {
+    "id": "bad_e_3",
+    "sport": "Badminton",
+    "difficulty": "Easy",
+    "category": "history",
+    "fact": "Badminton officially made its debut as a medal sport at the Summer Olympic Games at Barcelona in 1992."
+  },
+  {
+    "id": "bad_e_4",
+    "sport": "Badminton",
+    "difficulty": "Easy",
+    "category": "records",
+    "fact": "Lin Dan of China is widely considered one of the greatest badminton players of all time, having won back-to-back Olympic Men's Singles gold medals in 2008 and 2012."
+  },
+  {
+    "id": "bad_e_5",
+    "sport": "Badminton",
+    "difficulty": "Easy",
+    "category": "rules",
+    "fact": "In badminton, the server must hit the shuttlecock below a fixed height of 1.15 meters from the surface of the court."
+  },
+  {
+    "id": "bad_e_6",
+    "sport": "Badminton",
+    "difficulty": "Easy",
+    "category": "history",
+    "fact": "The Thomas Cup is the premier international men's team championship in badminton, first held in 1948-1949."
+  },
+  {
+    "id": "bad_m_1",
+    "sport": "Badminton",
+    "difficulty": "Medium",
+    "category": "records",
+    "fact": "Satwiksairaj Rankireddy of India holds the Guinness World Record for the fastest smash in badminton history, recorded at an astonishing 565 km/h (351 mph) in 2023."
+  },
+  {
+    "id": "bad_m_2",
+    "sport": "Badminton",
+    "difficulty": "Medium",
+    "category": "history",
+    "fact": "The Uber Cup is the premier biennial women's national team badminton championship, named after the British player Betty Uber."
+  },
+  {
+    "id": "bad_m_3",
+    "sport": "Badminton",
+    "difficulty": "Medium",
+    "category": "rules",
+    "fact": "The height of a badminton net is exactly 5 feet and 1 inch (1.55 meters) at the posts and 5 feet (1.524 meters) at the center of the court."
+  },
+  {
+    "id": "bad_m_4",
+    "sport": "Badminton",
+    "difficulty": "Medium",
+    "category": "records",
+    "fact": "Lee Chong Wei of Malaysia held the World No. 1 ranking for a remarkable 349 weeks during his career, including 199 consecutive weeks from 2008 to 2012."
+  },
+  {
+    "id": "bad_m_5",
+    "sport": "Badminton",
+    "difficulty": "Medium",
+    "category": "rules",
+    "fact": "If the score reaches 20-all in badminton, the side that gains a 2-point lead first wins the game, up to a maximum cap of 30 points (where 30-29 wins)."
+  },
+  {
+    "id": "bad_m_6",
+    "sport": "Badminton",
+    "difficulty": "Medium",
+    "category": "history",
+    "fact": "Prakash Padukone became the first Indian to win the prestigious All England Open Badminton Championship in 1980, defeating Liem Swie King in London."
+  },
+  {
+    "id": "bad_h_1",
+    "sport": "Badminton",
+    "difficulty": "Hard",
+    "category": "history",
+    "fact": "The modern game of badminton was developed in the 19th century in British India, originally known as 'Poona' before being popularized at the Duke of Beaufort's Badminton House in Gloucestershire."
+  },
+  {
+    "id": "bad_h_2",
+    "sport": "Badminton",
+    "difficulty": "Hard",
+    "category": "records",
+    "fact": "Pearly Tan of Malaysia holds the Guinness World Record for the fastest smash by a female badminton player, clocked at 438 km/h (272 mph)."
+  },
+  {
+    "id": "bad_h_3",
+    "sport": "Badminton",
+    "difficulty": "Hard",
+    "category": "records",
+    "fact": "The longest recorded rally in competitive badminton history lasted 211 shots (3 minutes and 50 seconds) between Pearly Tan / Thinaah Muralitharan and Rena Miyaura / Ayako Sakuramoto at the 2023 Malaysia Masters."
+  },
+  {
+    "id": "bad_h_4",
+    "sport": "Badminton",
+    "difficulty": "Hard",
+    "category": "rules",
+    "fact": "An official competitive feather shuttlecock must weigh between 4.74 and 5.50 grams and have a skirt diameter of 58 to 68 millimeters."
+  },
+  {
+    "id": "bad_h_5",
+    "sport": "Badminton",
+    "difficulty": "Hard",
+    "category": "history",
+    "fact": "Indonesia is the most successful nation in Thomas Cup history, having won the men's team world championship 14 times."
+  },
+  {
+    "id": "bad_h_6",
+    "sport": "Badminton",
+    "difficulty": "Hard",
+    "category": "records",
+    "fact": "Viktor Axelsen of Denmark set a modern record in 2022 by winning 39 consecutive international matches and claiming 8 individual titles in a single season."
+  }
+]

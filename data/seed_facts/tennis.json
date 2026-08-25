@@ -1,0 +1,128 @@
+[
+  {
+    "id": "ten_e_1",
+    "sport": "Tennis",
+    "difficulty": "Easy",
+    "category": "rules",
+    "fact": "In standard tennis scoring, points progress from Love (0) to 15, then 30, then 40, before winning game point."
+  },
+  {
+    "id": "ten_e_2",
+    "sport": "Tennis",
+    "difficulty": "Easy",
+    "category": "history",
+    "fact": "The four Grand Slam tournaments in tennis are the Australian Open, French Open (Roland Garros), Wimbledon, and the US Open."
+  },
+  {
+    "id": "ten_e_3",
+    "sport": "Tennis",
+    "difficulty": "Easy",
+    "category": "records",
+    "fact": "Rafael Nadal is known as the 'King of Clay' after winning an unprecedented 14 French Open men's singles titles."
+  },
+  {
+    "id": "ten_e_4",
+    "sport": "Tennis",
+    "difficulty": "Easy",
+    "category": "rules",
+    "fact": "Wimbledon is the only Grand Slam tournament played on natural grass courts."
+  },
+  {
+    "id": "ten_e_5",
+    "sport": "Tennis",
+    "difficulty": "Easy",
+    "category": "records",
+    "fact": "Novak Djokovic holds the men's all-time record for the most Grand Slam singles titles in the Open Era with 24 titles."
+  },
+  {
+    "id": "ten_e_6",
+    "sport": "Tennis",
+    "difficulty": "Easy",
+    "category": "records",
+    "fact": "Serena Williams won 23 Grand Slam singles titles in the Open Era, the most by any player in the modern era."
+  },
+  {
+    "id": "ten_m_1",
+    "sport": "Tennis",
+    "difficulty": "Medium",
+    "category": "records",
+    "fact": "The longest match in professional tennis history was played at Wimbledon 2010 between John Isner and Nicolas Mahut, lasting 11 hours and 5 minutes across three days."
+  },
+  {
+    "id": "ten_m_2",
+    "sport": "Tennis",
+    "difficulty": "Medium",
+    "category": "rules",
+    "fact": "The height of a tennis net is standard at exactly 3 feet (0.914 meters) at the center strap and 3.5 feet (1.07 meters) at the posts."
+  },
+  {
+    "id": "ten_m_3",
+    "sport": "Tennis",
+    "difficulty": "Medium",
+    "category": "history",
+    "fact": "Steffi Graf achieved the only 'Golden Slam' in tennis history in 1988, winning all four Grand Slam titles and the Olympic Singles Gold medal in the same calendar year."
+  },
+  {
+    "id": "ten_m_4",
+    "sport": "Tennis",
+    "difficulty": "Medium",
+    "category": "records",
+    "fact": "Roger Federer holds the record for the most consecutive weeks ranked as World No. 1 in ATP history with 237 consecutive weeks from 2004 to 2008."
+  },
+  {
+    "id": "ten_m_5",
+    "sport": "Tennis",
+    "difficulty": "Medium",
+    "category": "history",
+    "fact": "The 'Open Era' of professional tennis began in 1968, when Grand Slam tournaments allowed professional players to compete alongside amateurs."
+  },
+  {
+    "id": "ten_m_6",
+    "sport": "Tennis",
+    "difficulty": "Medium",
+    "category": "rules",
+    "fact": "In a standard tiebreak game at 6-6 in a set, the first player or team to reach 7 points with a margin of at least 2 points wins the set."
+  },
+  {
+    "id": "ten_h_1",
+    "sport": "Tennis",
+    "difficulty": "Hard",
+    "category": "records",
+    "fact": "Sam Groth of Australia hit the fastest officially recorded serve in tennis history at 163.7 mph (263.4 km/h) at a Busan Challenger event in 2012."
+  },
+  {
+    "id": "ten_h_2",
+    "sport": "Tennis",
+    "difficulty": "Hard",
+    "category": "history",
+    "fact": "Spencer Gore won the inaugural Wimbledon Championships in 1877, defeating William Marshall in 48 minutes with a score of 6-1, 6-2, 6-4."
+  },
+  {
+    "id": "ten_h_3",
+    "sport": "Tennis",
+    "difficulty": "Hard",
+    "category": "records",
+    "fact": "Margaret Court holds the all-time record across both amateur and Open Eras with 24 Grand Slam singles titles and 64 major titles overall."
+  },
+  {
+    "id": "ten_h_4",
+    "sport": "Tennis",
+    "difficulty": "Hard",
+    "category": "rules",
+    "fact": "A 'Golden Set' in tennis occurs when a player wins a set 6-0 without dropping a single point (winning all 24 consecutive points), achieved by Yaroslava Shvedova at Wimbledon 2012."
+  },
+  {
+    "id": "ten_h_5",
+    "sport": "Tennis",
+    "difficulty": "Hard",
+    "category": "history",
+    "fact": "The French Open (Roland Garros) is named after the French aviator and World War I hero Roland Garros, who was the first person to fly across the Mediterranean."
+  },
+  {
+    "id": "ten_h_6",
+    "sport": "Tennis",
+    "difficulty": "Hard",
+    "category": "records",
+    "fact": "Goran Ivanisevic is the only player in tennis history to win a Wimbledon men's singles title entering the tournament as a wildcard, accomplishing the feat in 2001."
+  }
+]

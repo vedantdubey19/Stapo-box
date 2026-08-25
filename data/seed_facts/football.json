@@ -1,0 +1,128 @@
+[
+  {
+    "id": "fb_e_1",
+    "sport": "Football",
+    "difficulty": "Easy",
+    "category": "rules",
+    "fact": "A standard professional football match lasts for 90 minutes, split into two equal halves of 45 minutes each."
+  },
+  {
+    "id": "fb_e_2",
+    "sport": "Football",
+    "difficulty": "Easy",
+    "category": "records",
+    "fact": "Brazil is the most successful nation in FIFA World Cup history, having won the tournament 5 times (1958, 1962, 1970, 1994, 2002)."
+  },
+  {
+    "id": "fb_e_3",
+    "sport": "Football",
+    "difficulty": "Easy",
+    "category": "history",
+    "fact": "The first ever FIFA World Cup took place in Uruguay in 1930, with Uruguay emerging as champions after defeating Argentina 4-2."
+  },
+  {
+    "id": "fb_e_4",
+    "sport": "Football",
+    "difficulty": "Easy",
+    "category": "rules",
+    "fact": "Only the goalkeeper is allowed to intentionally touch the football with their hands or arms during open play, and only within their own penalty area."
+  },
+  {
+    "id": "fb_e_5",
+    "sport": "Football",
+    "difficulty": "Easy",
+    "category": "records",
+    "fact": "Cristiano Ronaldo holds the world record for the most international goals scored by an individual in men's football."
+  },
+  {
+    "id": "fb_e_6",
+    "sport": "Football",
+    "difficulty": "Easy",
+    "category": "history",
+    "fact": "Real Madrid holds the record for the most UEFA Champions League / European Cup titles in history."
+  },
+  {
+    "id": "fb_m_1",
+    "sport": "Football",
+    "difficulty": "Medium",
+    "category": "records",
+    "fact": "Lionel Messi holds the record for the most Ballon d'Or awards won by a player in history, with 8 titles."
+  },
+  {
+    "id": "fb_m_2",
+    "sport": "Football",
+    "difficulty": "Medium",
+    "category": "rules",
+    "fact": "The penalty spot in standard association football is located exactly 12 yards (11 meters) away from the center of the goal line."
+  },
+  {
+    "id": "fb_m_3",
+    "sport": "Football",
+    "difficulty": "Medium",
+    "category": "records",
+    "fact": "Miroslav Klose of Germany holds the record for the most goals scored in FIFA World Cup tournament history with 16 goals across four tournaments."
+  },
+  {
+    "id": "fb_m_4",
+    "sport": "Football",
+    "difficulty": "Medium",
+    "category": "history",
+    "fact": "Arsenal completed the entire 2003-04 Premier League season undefeated (26 wins, 12 draws), earning the moniker 'The Invincibles'."
+  },
+  {
+    "id": "fb_m_5",
+    "sport": "Football",
+    "difficulty": "Medium",
+    "category": "rules",
+    "fact": "According to IFAB Law 11, a player is not in an offside position if they receive the ball directly from a throw-in, corner kick, or goal kick."
+  },
+  {
+    "id": "fb_m_6",
+    "sport": "Football",
+    "difficulty": "Medium",
+    "category": "history",
+    "fact": "Leicester City won the English Premier League in the 2015-16 season with pre-season betting odds of 5000-to-1."
+  },
+  {
+    "id": "fb_h_1",
+    "sport": "Football",
+    "difficulty": "Hard",
+    "category": "records",
+    "fact": "Just Fontaine of France holds the record for the most goals scored in a single FIFA World Cup tournament, netting 13 goals in the 1958 World Cup in Sweden."
+  },
+  {
+    "id": "fb_h_2",
+    "sport": "Football",
+    "difficulty": "Hard",
+    "category": "history",
+    "fact": "Sheffield FC, founded on October 24, 1857 in England, is officially recognized by FIFA as the world's oldest existing football club."
+  },
+  {
+    "id": "fb_h_3",
+    "sport": "Football",
+    "difficulty": "Hard",
+    "category": "records",
+    "fact": "Sadio Mane scored the fastest hat-trick in Premier League history, netting 3 goals in 2 minutes and 56 seconds for Southampton against Aston Villa in 2015."
+  },
+  {
+    "id": "fb_h_4",
+    "sport": "Football",
+    "difficulty": "Hard",
+    "category": "rules",
+    "fact": "Under IFAB Law 12, an indirect free kick is awarded if a goalkeeper controls the ball with their hands for more than six seconds before releasing it."
+  },
+  {
+    "id": "fb_h_5",
+    "sport": "Football",
+    "difficulty": "Hard",
+    "category": "history",
+    "fact": "The 1950 World Cup decisive match at Maracana Stadium between Uruguay and Brazil had an estimated unofficial attendance of 199,854 spectators, the highest in football history."
+  },
+  {
+    "id": "fb_h_6",
+    "sport": "Football",
+    "difficulty": "Hard",
+    "category": "records",
+    "fact": "Rogerio Ceni, a Brazilian goalkeeper for Sao Paulo, scored 131 career goals through free kicks and penalties, the highest by any goalkeeper in football history."
+  }
+]
