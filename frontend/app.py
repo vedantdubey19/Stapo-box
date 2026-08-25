@@ -14,6 +14,8 @@ import html
 import json
 import os
 import random
+import threading
+import time
 import requests
 import streamlit as st
 import streamlit.components.v1 as components
@@ -28,6 +30,30 @@ st.set_page_config(
 )
 
 BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000").rstrip("/")
+
+
+@st.cache_resource
+def ensure_backend_running():
+    """Ensure FastAPI backend is active; spins up daemon instance for Streamlit Cloud."""
+    try:
+        requests.get(f"{BACKEND_URL}/health", timeout=1.0)
+    except Exception:
+        if "127.0.0.1" in BACKEND_URL or "localhost" in BACKEND_URL:
+            try:
+                import uvicorn
+                from backend.main import app as fastapi_app
+
+                def _run_server():
+                    uvicorn.run(fastapi_app, host="127.0.0.1", port=8000, log_level="warning")
+
+                t = threading.Thread(target=_run_server, daemon=True)
+                t.start()
+                time.sleep(1.2)
+            except Exception as e:
+                pass
+
+
+ensure_backend_running()
 
 # ── Design Palette Constants ─────────────────────────────────────────────────────
 HEADER_BLUE = "#4E7CFF"
