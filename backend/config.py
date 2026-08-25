@@ -25,6 +25,14 @@ class Settings(BaseSettings):
         default="gemini-2.0-flash",
         description="Gemini model identifier",
     )
+    LLM_MAX_RPM: int = Field(
+        default=12,
+        description="Maximum requests per minute for active LLM provider (client-side rate limiter)",
+    )
+    GEMINI_MAX_RPM: int = Field(
+        default=12,
+        description="Alias for Gemini RPM ceiling",
+    )
     OPENAI_API_KEY: str = Field(
         default="",
         description="OpenAI API key (optional)",

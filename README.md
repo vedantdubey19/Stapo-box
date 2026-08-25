@@ -236,6 +236,9 @@ pytest tests/ -v
 4. **Export Formats:**
    - *Current:* JSON export and clipboard copying.
    - *Production Improvement:* Provide direct CSV / Buffer / Hootsuite CSV scheduling templates and native image card rendering (Pillow/Canvas) for direct Story sticker overlay export.
+5. **Provider Rate Pacing & Throughput:**
+   - *Current:* Gemini free-tier is rate-limited to 15 RPM; the client enforces a client-side sliding window limiter (12 RPM) with exponential backoff. This ensures zero unhandled 429 errors, but increases batch generation latency under rapid sequential requests.
+   - *Production Improvement:* Upgrading to Gemini Pay-as-you-go (Tier 1, 1000 RPM) or swapping `LLM_PROVIDER=openai`/`claude` removes the throughput bottleneck and enables sub-5s parallel batch generation.
 
 ---
 

@@ -403,7 +403,11 @@ with tab_gen:
                             st.error(f"Failed to regenerate: {err}")
 
             # Specific Type Card Renders
-            if c_type == "MCQ":
+            if item.get("error"):
+                st.markdown(f'<div class="card-heading" style="color: #f87171;">⚠️ Couldn\'t generate this item</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 0.75rem;">{item.get("message", "Upstream rate limit or temporary timeout. Click Redo to regenerate.")}</div>', unsafe_allow_html=True)
+
+            elif c_type == "MCQ":
                 st.markdown(f'<div class="card-heading">{item["question"]}</div>', unsafe_allow_html=True)
                 for key, text in item["options"].items():
                     is_correct = key == item["correct_answer"]

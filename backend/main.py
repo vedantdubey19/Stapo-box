@@ -97,10 +97,12 @@ def generate_single_item(payload: GenerateItemRequest):
             item=item,
         )
     except Exception as e:
+        err_msg = str(e)
         logger.error(f"Failed to generate item: {e}", exc_info=True)
+        status_code = status.HTTP_503_SERVICE_UNAVAILABLE if ("429" in err_msg or "rate limit" in err_msg.lower() or "quota" in err_msg.lower()) else status.HTTP_500_INTERNAL_SERVER_ERROR
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Content generation failed: {str(e)}",
+            status_code=status_code,
+            detail={"error": "generation_failed", "message": err_msg},
         )
 
 
@@ -134,10 +136,12 @@ def generate_batch(payload: GenerateBatchRequest):
             items=items,
         )
     except Exception as e:
+        err_msg = str(e)
         logger.error(f"Failed to generate batch: {e}", exc_info=True)
+        status_code = status.HTTP_503_SERVICE_UNAVAILABLE if ("429" in err_msg or "rate limit" in err_msg.lower() or "quota" in err_msg.lower()) else status.HTTP_500_INTERNAL_SERVER_ERROR
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Batch generation failed: {str(e)}",
+            status_code=status_code,
+            detail={"error": "batch_generation_failed", "message": err_msg},
         )
 
 
@@ -156,10 +160,12 @@ def regenerate_item(payload: RegenerateItemRequest):
             item=item,
         )
     except Exception as e:
+        err_msg = str(e)
         logger.error(f"Failed to regenerate item: {e}", exc_info=True)
+        status_code = status.HTTP_503_SERVICE_UNAVAILABLE if ("429" in err_msg or "rate limit" in err_msg.lower() or "quota" in err_msg.lower()) else status.HTTP_500_INTERNAL_SERVER_ERROR
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Regeneration failed: {str(e)}",
+            status_code=status_code,
+            detail={"error": "regeneration_failed", "message": err_msg},
         )
 
 

@@ -16,6 +16,7 @@ from backend.agent.schemas import (
     ThisOrThatSchema,
     FillBlankSchema,
     GuessNumberSchema,
+    ItemErrorSchema,
     BatchItemWrapper,
     ContentItemPayload,
 )
@@ -407,7 +408,20 @@ class Orchestrator:
                     )
                     batch_items.append(wrapper)
                 except Exception as fatal_e:
-                    logger.error(f"Fatal fallback error: {fatal_e}")
+                    logger.error(f"Fatal fallback error for item {idx+1}: {fatal_e}")
+                    error_wrapper = BatchItemWrapper(
+                        id=f"item_{idx}_error_{uuid.uuid4().hex[:6]}",
+                        content_type=c_type,
+                        item=ItemErrorSchema(
+                            error="generation_failed",
+                            message=f"Generation rate-limited or unavailable: {str(fatal_e)}",
+                            sport=sport,
+                            difficulty=difficulty,
+                            content_type=c_type,
+                            platform_surface=get_platform_surface(c_type, difficulty),
+                        ),
+                    )
+                    batch_items.append(error_wrapper)
 
         return batch_items
 

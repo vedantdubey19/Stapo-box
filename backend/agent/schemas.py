@@ -207,6 +207,16 @@ class GuessNumberSchema(BaseModel):
     )
 
 
+class ItemErrorSchema(BaseModel):
+    """Fallback error schema for items that failed generation gracefully."""
+    error: str = Field(default="generation_failed", description="Error type identifier")
+    message: str = Field(..., description="Human-readable error description")
+    sport: str = Field(..., description="Target sport")
+    difficulty: str = Field(default="Medium", description="Target difficulty")
+    content_type: str = Field(..., description="Target content type")
+    platform_surface: str = Field(default="Story", description="Target surface")
+
+
 # ── Unified Item Types ───────────────────────────────────────────────────────────
 
 ContentItemPayload = Union[
@@ -215,6 +225,7 @@ ContentItemPayload = Union[
     ThisOrThatSchema,
     FillBlankSchema,
     GuessNumberSchema,
+    ItemErrorSchema,
 ]
 
 

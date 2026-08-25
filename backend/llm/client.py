@@ -1,12 +1,16 @@
-"""LLM client wrapper providing a swappable interface.
+"""LLM client wrapper providing a swappable interface with rate pacing.
 
 Supports Google Gemini (via official google-genai SDK), Anthropic Claude,
 and OpenAI backends configured by the LLM_PROVIDER environment variable.
+Includes a thread-safe sliding window rate limiter and exponential backoff.
 """
 
 import json
 import re
+import time
 import logging
+import threading
+from collections import deque
 from typing import Any, Dict, Optional
 from google import genai
 from google.genai import types
@@ -19,18 +23,62 @@ logger = logging.getLogger(__name__)
 def clean_json_response(raw_text: str) -> str:
     """Strip markdown code blocks or wrapping whitespace from LLM output."""
     text = raw_text.strip()
-    # Match ```json ... ``` or ``` ... ```
     match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
     if match:
         return match.group(1).strip()
     return text
 
 
+class SlidingWindowRateLimiter:
+    """Thread-safe sliding window rate limiter ensuring requests per minute stay below ceiling."""
+
+    def __init__(self, max_rpm: int = 12, window_seconds: float = 60.0):
+        self.max_rpm = max(1, max_rpm)
+        self.window_seconds = window_seconds
+        self._timestamps: deque = deque()
+        self._lock = threading.Lock()
+
+    def acquire(self) -> float:
+        """Block until a slot in the sliding window is available.
+        
+        Returns:
+            float: Total seconds waited before acquiring slot.
+        """
+        total_waited = 0.0
+        while True:
+            sleep_needed = 0.0
+            with self._lock:
+                now = time.time()
+                # Purge timestamps older than the sliding window
+                while self._timestamps and self._timestamps[0] <= now - self.window_seconds:
+                    self._timestamps.popleft()
+
+                if len(self._timestamps) < self.max_rpm:
+                    self._timestamps.append(now)
+                    if total_waited > 0:
+                        logger.info(f"RateLimiter: Slot acquired after {total_waited:.2f}s wait ({len(self._timestamps)}/{self.max_rpm} in window).")
+                    return total_waited
+
+                # Calculate duration until oldest request exits window
+                oldest = self._timestamps[0]
+                sleep_needed = max(0.1, (oldest + self.window_seconds) - now + 0.1)
+
+            if sleep_needed > 0:
+                logger.info(
+                    f"RateLimiter: Pacing requests (current {len(self._timestamps)}/{self.max_rpm} in {self.window_seconds}s window). "
+                    f"Sleeping {sleep_needed:.2f}s..."
+                )
+                time.sleep(sleep_needed)
+                total_waited += sleep_needed
+
+
 class LLMClient:
-    """Wrapper for invoking LLMs with structured JSON responses."""
+    """Wrapper for invoking LLMs with structured JSON responses and client-side rate pacing."""
 
     def __init__(self):
         self.provider = settings.LLM_PROVIDER.lower()
+        rpm_ceiling = getattr(settings, "GEMINI_MAX_RPM", 12) or getattr(settings, "LLM_MAX_RPM", 12) or 12
+        self.rate_limiter = SlidingWindowRateLimiter(max_rpm=rpm_ceiling, window_seconds=60.0)
         self._init_provider()
 
     def _init_provider(self) -> None:
@@ -56,18 +104,7 @@ class LLMClient:
             raise ValueError(f"Unsupported LLM provider: {self.provider}")
 
     def generate_json(self, prompt: str, system_instruction: Optional[str] = None) -> Dict[str, Any]:
-        """Generate a structured JSON response from the LLM.
-
-        Args:
-            prompt: User prompt containing instructions, context, and schema details.
-            system_instruction: Optional system instruction for grounding or behavior.
-
-        Returns:
-            Dict containing parsed JSON payload from LLM.
-
-        Raises:
-            RuntimeError: If LLM call fails or returns malformed JSON.
-        """
+        """Generate a structured JSON response from the LLM with rate limiting and backoff."""
         if self.provider == "gemini":
             return self._generate_gemini_json(prompt, system_instruction)
         elif self.provider == "openai":
@@ -77,33 +114,64 @@ class LLMClient:
         else:
             raise RuntimeError(f"Unknown provider: {self.provider}")
 
-    def _generate_gemini_json(self, prompt: str, system_instruction: Optional[str] = None) -> Dict[str, Any]:
-        """Invoke Gemini model with JSON response configuration."""
-        try:
-            config = types.GenerateContentConfig(
-                response_mime_type="application/json",
-                temperature=0.7,
-            )
-            if system_instruction:
-                config.system_instruction = system_instruction
+    def _generate_gemini_json(
+        self,
+        prompt: str,
+        system_instruction: Optional[str] = None,
+        max_retries: int = 5,
+    ) -> Dict[str, Any]:
+        """Invoke Gemini model with client-side rate limiting and 429 exponential backoff."""
+        config = types.GenerateContentConfig(
+            response_mime_type="application/json",
+            temperature=0.7,
+        )
+        if system_instruction:
+            config.system_instruction = system_instruction
 
-            response = self.gemini_client.models.generate_content(
-                model=self.model_name,
-                contents=prompt,
-                config=config,
-            )
+        delay = 5.0
+        for attempt in range(1, max_retries + 1):
+            # 1. Pacing slot acquisition
+            self.rate_limiter.acquire()
 
-            if not response.text:
-                raise ValueError("Gemini returned empty text response")
+            try:
+                response = self.gemini_client.models.generate_content(
+                    model=self.model_name,
+                    contents=prompt,
+                    config=config,
+                )
 
-            cleaned = clean_json_response(response.text)
-            return json.loads(cleaned)
-        except Exception as e:
-            logger.error(f"Gemini generation error: {e}", exc_info=True)
-            raise RuntimeError(f"Gemini generation failed: {e}") from e
+                if not response.text:
+                    raise ValueError("Gemini returned empty text response")
+
+                cleaned = clean_json_response(response.text)
+                return json.loads(cleaned)
+            except Exception as e:
+                err_str = str(e).lower()
+                is_rate_limit = "429" in err_str or "resource_exhausted" in err_str or "quota" in err_str
+                
+                if is_rate_limit:
+                    if attempt < max_retries:
+                        logger.warning(
+                            f"Gemini 429/Quota limit hit on attempt {attempt}/{max_retries}. Backing off {delay:.1f}s..."
+                        )
+                        time.sleep(delay)
+                        delay *= 1.8
+                        continue
+                    else:
+                        logger.error(f"Gemini rate limit retries exhausted after {max_retries} attempts.")
+                        raise RuntimeError(f"Gemini API rate limit exceeded ({max_retries} retries exhausted): {e}") from e
+
+                # For non-rate-limit errors
+                logger.error(f"Gemini generation error on attempt {attempt}/{max_retries}: {e}")
+                if attempt == max_retries:
+                    raise RuntimeError(f"Gemini generation failed: {e}") from e
+                time.sleep(1.0)
+
+        raise RuntimeError("Gemini generation retries exhausted")
 
     def _generate_openai_json(self, prompt: str, system_instruction: Optional[str] = None) -> Dict[str, Any]:
         """Invoke OpenAI model with JSON response format."""
+        self.rate_limiter.acquire()
         try:
             messages = []
             if system_instruction:
@@ -124,6 +192,7 @@ class LLMClient:
 
     def _generate_claude_json(self, prompt: str, system_instruction: Optional[str] = None) -> Dict[str, Any]:
         """Invoke Anthropic Claude model."""
+        self.rate_limiter.acquire()
         try:
             kwargs: Dict[str, Any] = {
                 "model": self.model_name,

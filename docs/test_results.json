@@ -1,0 +1,158 @@
+{
+  "1": {
+    "name": "Clean dual-server boot",
+    "status": "PASS",
+    "evidence": "FastAPI health: 200 ({'status': 'healthy', 'provider': 'gemini', 'allowed_sports': ['Cricket', 'Football', 'Tennis', 'Badminton', 'Basketball'], 'allowed_difficulties': ['Easy', 'Medium', 'Hard'], 'allowed_content_types': ['MCQ', 'True/False', 'This-or-That', 'Fill in the Blank', 'Guess the Number']}) | Streamlit health: 200 (ok)",
+    "remediation": ""
+  },
+  "2": {
+    "name": "Sport selection constraint (all 5 sports)",
+    "status": "PASS",
+    "evidence": "Cricket: 'How many legal deliveries are bowled in a single s...' (Ans: 6) | Football: 'Which club holds the record for the most UEFA Cham...' (Ans: Real Madrid) | Tennis: 'Which player holds the men's all-time record for t...' (Ans: Novak Djokovic) | Badminton: 'In what year did badminton officially make its deb...' (Ans: 1992) | Basketball: 'How many minutes are played in a standard NBA game...' (Ans: 48 minutes)",
+    "remediation": ""
+  },
+  "3": {
+    "name": "Difficulty level constraint (Easy/Med/Hard)",
+    "status": "PASS",
+    "evidence": "[Easy] Question: 'How many legal deliveries are there in a standard cricket over?' | Answer: '6' \n[Medium] Question: 'Which legendary bowler holds the world record for the most Test wickets in history?' | Answer: 'Muttiah Muralitharan' \n[Hard] Question: 'Which iconic bowling record was set by England's Jim Laker at Old Trafford in 1956?' | Answer: 'Took 19 wickets for 90 runs in a Test'",
+    "remediation": ""
+  },
+  "4": {
+    "name": "Single content type batch isolation",
+    "status": "FAIL",
+    "evidence": "MCQ: 4 items matched type 'MCQ' | True/False failed:  | This-or-That: 4 items matched type 'This-or-That' | Fill in the Blank: 4 items matched type 'Fill in the Blank' | Guess the Number: 4 items matched type 'Guess the Number'",
+    "remediation": "Fix type filtering in batch generation"
+  },
+  "5": {
+    "name": "Mixed-type batch generation (4-5 items)",
+    "status": "PASS",
+    "evidence": "Mixed Batch count: 5 | Returned types: ['MCQ', 'True/False', 'This-or-That', 'Fill in the Blank', 'Guess the Number']",
+    "remediation": ""
+  },
+  "6": {
+    "name": "Per-item regeneration",
+    "status": "PASS",
+    "evidence": "Item 1 untouched: 'What is the maximum point cap in a ...' | Item 3 replaced: 'In 2023, Indian badminton star Satw...' -> 'In 2023, Indian badminton star Satw...'",
+    "remediation": ""
+  },
+  "7": {
+    "name": "Full-batch regeneration",
+    "status": "PASS",
+    "evidence": "Batch 1 types: ['MCQ', 'True/False', 'This-or-That', 'Fill in the Blank'] | Batch 2 types: ['MCQ', 'True/False', 'This-or-That', 'Fill in the Blank'] | Preserved exact distribution across refresh",
+    "remediation": ""
+  },
+  "8": {
+    "name": "Grounding trace & This-or-That opinion exemption",
+    "status": "PASS",
+    "evidence": "MCQ grounded=True, source='vector_db' | This-or-That is_opinion=True, keys=['sport', 'prompt', 'options', 'is_opinion', 'platform_surface']",
+    "remediation": ""
+  },
+  "9": {
+    "name": "Recency query routing to Tavily Web Search",
+    "status": "PASS",
+    "evidence": "Source tagged: 'web_search' | Context header: 'Source: Web Search (Spain Football: Latest Spanish Football Transfer News Today!)'",
+    "remediation": ""
+  },
+  "10": {
+    "name": "Historical fact routing to ChromaDB",
+    "status": "PASS",
+    "evidence": "Source tagged: 'vector_db' | Context snippet: 'Verified Sports Fact:\nJim Laker of England took 19 wickets for 90 runs against Australia a...'",
+    "remediation": ""
+  },
+  "11": {
+    "name": "2-Stage Anti-Hallucination Grounding Gate",
+    "status": "PASS",
+    "evidence": "Deliberate hallucination caught: is_grounded=False, score=60.0% (Claim 'Ricky Ponting scored 100 centuries.' not verified in context (score 60.0% < 85.0%))",
+    "remediation": ""
+  },
+  "12": {
+    "name": "Persistent semantic deduplication (> 0.90 threshold)",
+    "status": "PASS",
+    "evidence": "Duplicate flagged (similarity=1.000) | Persisted across store re-instantiation (similarity=1.000)",
+    "remediation": ""
+  },
+  "13": {
+    "name": "Type-specific prompt templates (5 isolated files)",
+    "status": "PASS",
+    "evidence": "Found exactly 5 isolated prompt modules: ['fill_blank.py', 'guess_number.py', 'mcq.py', 'this_or_that.py', 'true_false.py']",
+    "remediation": ""
+  },
+  "14": {
+    "name": "Pydantic v2 validation resilience (15 items tested)",
+    "status": "FAIL",
+    "evidence": "MCQ #1: OK | MCQ #2: OK | MCQ #3: OK | True/False #1: OK | True/False #2: OK | True/False #3: OK | This-or-That #1: OK | This-or-That #2 FAILED: Gemini generation retries exhausted | This-or-That #3: OK | Fill in the Blank #1: OK | Fill in the Blank #2: OK | Fill in the Blank #3: OK | Guess the Number #1: OK | Guess the Number #2: OK | Guess the Number #3: OK",
+    "remediation": "Fix schema validation"
+  },
+  "15": {
+    "name": "MCQ Schema conformance",
+    "status": "PASS",
+    "evidence": "Options: ['A', 'B', 'C', 'D'] | Answer: 'C' in options | Expl len: 107 <= 300 | Surface: 'Story'",
+    "remediation": ""
+  },
+  "16": {
+    "name": "True/False Schema conformance",
+    "status": "PASS",
+    "evidence": "Statement: 'Real Madrid holds the record for the most UEFA Champions League / European Cup titles in history.' | correct_answer: True (type bool) | Surface: 'Story'",
+    "remediation": ""
+  },
+  "17": {
+    "name": "This-or-That Schema structural omission",
+    "status": "PASS",
+    "evidence": "Options count: 2 | is_opinion: True | hasattr(correct_answer): False | hasattr(grounded): False",
+    "remediation": ""
+  },
+  "18": {
+    "name": "Fill in the Blank Schema conformance",
+    "status": "PASS",
+    "evidence": "Sentence: 'In 2023, Indian shuttler Satwiksairaj Rankireddy set a Guinness World Record for the fastest smash in history, clocking in at ___.' (count '___' = 1) | Options count: 4 | Answer: '565 km/h' in options | Surface: 'Feed'",
+    "remediation": ""
+  },
+  "19": {
+    "name": "Guess the Number Schema conformance",
+    "status": "PASS",
+    "evidence": "Question: 'GUESS THE NUMBER: How many total blocks has Victor Wembanyama recorded according to the latest official NBA season stats provided in our data?' | Target: 78.0 (float) | Tolerance: 0.0 >= 0 | Surface: 'Reel Caption'",
+    "remediation": ""
+  },
+  "20": {
+    "name": "Streamlit dashboard UI capabilities",
+    "status": "PASS",
+    "evidence": "frontend/app.py supports all 5 types dropdown, tabs for Content Generator & Freshness Analytics, and JSON export buttons.",
+    "remediation": ""
+  },
+  "21": {
+    "name": "README.md structure & content per Rules \u00a711",
+    "status": "PASS",
+    "evidence": "README.md contains all 6 required sections in exact sequence with concrete project-specific technical analysis.",
+    "remediation": ""
+  },
+  "22": {
+    "name": "Secret management & Git hygiene",
+    "status": "PASS",
+    "evidence": ".env.example exists | .env is strictly gitignored (check-ignore=0) | git log secret scan returned 0 leaked keys.",
+    "remediation": ""
+  },
+  "23": {
+    "name": "Conventional Phase-by-Phase Git Commit History",
+    "status": "PASS",
+    "evidence": "Found 9 commits spanning Phase 0 to Phase 8:\n  9e2f82a Phase 8: tests, README, demo \u2014 submission ready\n  8fe5535 Phase 7: USP feature \u2014 Freshness and Grounding Analytics + UI polish\n  dae0e28 Phase 6: dedup/freshness via persistent ChromaDB history\n  678cd35 Phase 5: batch generation + per-item/full regeneration\n  9d99903 Phase 4: all 5 content types + platform surface tagging\n  038931f Phase 3: grounding verification layer, tested against wrong-answer case\n  e9d170b Phase 2: retrieval + source tagging wired into MCQ pipeline\n  ef9f988 Phase 1: MCQ vertical slice, no retrieval yet\n  1b976e9 Phase 0: project scaffold + API connectivity confirmed",
+    "remediation": ""
+  },
+  "24": {
+    "name": "Factual accuracy manual spot-check (5 claims)",
+    "status": "PASS",
+    "evidence": "Brian Lara highest test score 400*: Verified: Scored 400* vs England at Antigua in 2004 | Miroslav Klose 16 World Cup goals: Verified: Scored 16 goals across 2002, 2006, 2010, 2014 | Rafael Nadal 14 French Open titles: Verified: Won 14 Roland Garros men's singles titles | Satwiksairaj Rankireddy 565 km/h smash: Verified: Guinness World Record set in 2023 | Wilt Chamberlain 100 points game: Verified: Scored 100 points vs NY Knicks on March 2, 1962",
+    "remediation": ""
+  },
+  "25": {
+    "name": "End-to-end UX & usability flow audit",
+    "status": "FAIL",
+    "evidence": "User flow error:",
+    "remediation": "Fix end-to-end workflow"
+  },
+  "26": {
+    "name": "USP Analytics telemetry live integration",
+    "status": "PASS",
+    "evidence": "Telemetry verified live from orchestrator state: Total generated=26, Grounding rate=95.0%, 1st-try/Retry=17/2, Dedup rejections=7, Sources={'vector_db': 13, 'web_search': 6, 'both': 0, 'none': 0}, Surfaces={'Story': 15, 'Feed': 5, 'Reel Caption': 4}",
+    "remediation": ""
+  }
+}
