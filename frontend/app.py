@@ -235,13 +235,13 @@ with st.sidebar:
         index=1,
     )
 
-    gen_mode = st.radio("Generation Mode", ["Mixed Batch (5 Items)", "Single Content Type"], index=0)
+    gen_mode = st.radio("Generation Mode", ["Mixed Batch (5 Items)", "Single Format Batch (5 Items)"], index=0)
 
     selected_types = []
     single_type = "MCQ"
-    if gen_mode == "Single Content Type":
+    if "Single" in gen_mode:
         single_type = st.selectbox(
-            "Content Type",
+            "Select Content Format",
             options=["MCQ", "True/False", "This-or-That", "Fill in the Blank", "Guess the Number"],
             index=0,
         )
@@ -263,54 +263,34 @@ tab_gen, tab_analytics = st.tabs(["⚡ Content Generator", "📊 Freshness & Gro
 # ── Tab 1: Content Generator ────────────────────────────────────────────────────
 with tab_gen:
     if generate_btn:
+        active_types = [single_type] if "Single" in gen_mode else (selected_types or ["MCQ"])
         st.session_state.last_params = {
             "sport": sport,
             "difficulty": difficulty,
-            "types": selected_types or ["MCQ"],
+            "types": active_types,
             "topic_hint": topic_hint,
         }
 
-        with st.spinner(f"Researching and generating verified {difficulty} {sport} content..."):
+        type_label = f"5x {single_type}" if "Single" in gen_mode else "5x Mixed Formats"
+        with st.spinner(f"Researching and generating verified {difficulty} {sport} content ({type_label})..."):
             try:
-                if gen_mode == "Mixed Batch (5 Items)":
-                    resp = requests.post(
-                        f"{BACKEND_URL}/generate/batch",
-                        json={
-                            "sport": sport,
-                            "difficulty": difficulty,
-                            "count": 5,
-                            "content_types": selected_types or ["MCQ"],
-                            "topic_hint": topic_hint if topic_hint.strip() else None,
-                        },
-                        timeout=120,
-                    )
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        st.session_state.batch_items = data.get("items", [])
-                        st.success(f"✨ Successfully created batch of {len(st.session_state.batch_items)} items!")
-                    else:
-                        st.error(f"Error {resp.status_code}: {resp.text}")
+                resp = requests.post(
+                    f"{BACKEND_URL}/generate/batch",
+                    json={
+                        "sport": sport,
+                        "difficulty": difficulty,
+                        "count": 5,
+                        "content_types": active_types,
+                        "topic_hint": topic_hint if topic_hint.strip() else None,
+                    },
+                    timeout=120,
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    st.session_state.batch_items = data.get("items", [])
+                    st.success(f"✨ Successfully created batch of {len(st.session_state.batch_items)} items!")
                 else:
-                    resp = requests.post(
-                        f"{BACKEND_URL}/generate/item",
-                        json={
-                            "sport": sport,
-                            "difficulty": difficulty,
-                            "content_type": single_type,
-                            "topic_hint": topic_hint if topic_hint.strip() else None,
-                        },
-                        timeout=60,
-                    )
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        st.session_state.batch_items = [{
-                            "id": "single_0",
-                            "content_type": data.get("content_type"),
-                            "item": data.get("item"),
-                        }]
-                        st.success("✨ Single item generated successfully!")
-                    else:
-                        st.error(f"Error {resp.status_code}: {resp.text}")
+                    st.error(f"Error {resp.status_code}: {resp.text}")
             except requests.exceptions.ReadTimeout:
                 st.error("⏳ Generation timed out while awaiting rate-pacing slots on the free-tier model. Please try again.")
             except Exception as err:
