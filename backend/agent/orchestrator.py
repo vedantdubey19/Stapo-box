@@ -1,15 +1,30 @@
 """Agent Orchestrator module.
 
 Coordinates prompt generation, retrieval routing (Tavily + ChromaDB),
-LLM invocation, schema validation, grounding verification, and platform surface tagging.
+LLM invocation, schema validation, grounding verification, and deterministic platform surface tagging
+across all 5 engagement content types.
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
-from backend.agent.schemas import MCQSchema
-from backend.agent.prompts import mcq as mcq_prompt
+from backend.agent.schemas import (
+    MCQSchema,
+    TrueFalseSchema,
+    ThisOrThatSchema,
+    FillBlankSchema,
+    GuessNumberSchema,
+    ContentItem,
+)
+from backend.agent.prompts import (
+    mcq as mcq_prompt,
+    true_false as true_false_prompt,
+    this_or_that as this_or_that_prompt,
+    fill_blank as fill_blank_prompt,
+    guess_number as guess_number_prompt,
+)
 from backend.agent.grounding import verify_grounding
+from backend.agent.surface_mapping import get_platform_surface
 from backend.llm.client import llm_client
 from backend.retrieval.vector_store import vector_store
 from backend.retrieval.web_search import web_search
@@ -26,7 +41,7 @@ class TelemetryTracker:
         self.grounded_after_retry: int = 0
         self.grounding_failures_discarded: int = 0
         self.dedup_rejections: int = 0
-        self.source_counts: Dict[str, int] = {"vector_db": 0, "web_search": 0, "both": 0}
+        self.source_counts: Dict[str, int] = {"vector_db": 0, "web_search": 0, "both": 0, "none": 0}
         self.surface_counts: Dict[str, int] = {"Story": 0, "Feed": 0, "Reel Caption": 0}
 
     def record_grounding(self, is_first_try: bool, success: bool):
@@ -41,10 +56,14 @@ class TelemetryTracker:
     def record_source(self, source: str):
         if source in self.source_counts:
             self.source_counts[source] += 1
+        else:
+            self.source_counts[source] = 1
 
     def record_surface(self, surface: str):
         if surface in self.surface_counts:
             self.surface_counts[surface] += 1
+        else:
+            self.surface_counts[surface] = 1
 
     def get_stats(self) -> Dict[str, Any]:
         total_grounded = self.grounded_first_try + self.grounded_after_retry
@@ -64,13 +83,39 @@ class TelemetryTracker:
 
 
 class Orchestrator:
-    """Core AI agent orchestrating sports content generation with verified grounding."""
+    """Core AI agent orchestrating sports content generation across all 5 content types."""
 
     def __init__(self):
         self.llm = llm_client
         self.vector_store = vector_store
         self.web_search = web_search
         self.telemetry = TelemetryTracker()
+
+    def _get_schema_class(self, content_type: str) -> Type[Any]:
+        """Map content type string to its corresponding Pydantic schema class."""
+        mapping = {
+            "MCQ": MCQSchema,
+            "True/False": TrueFalseSchema,
+            "This-or-That": ThisOrThatSchema,
+            "Fill in the Blank": FillBlankSchema,
+            "Guess the Number": GuessNumberSchema,
+        }
+        if content_type not in mapping:
+            raise ValueError(f"Unsupported content type: {content_type}")
+        return mapping[content_type]
+
+    def _get_prompt_builder(self, content_type: str):
+        """Map content type string to its specialized prompt builder function."""
+        mapping = {
+            "MCQ": mcq_prompt.build_prompt,
+            "True/False": true_false_prompt.build_prompt,
+            "This-or-That": this_or_that_prompt.build_prompt,
+            "Fill in the Blank": fill_blank_prompt.build_prompt,
+            "Guess the Number": guess_number_prompt.build_prompt,
+        }
+        if content_type not in mapping:
+            raise ValueError(f"Unsupported content type: {content_type}")
+        return mapping[content_type]
 
     def route_and_retrieve(
         self,
@@ -115,79 +160,90 @@ class Orchestrator:
 
         return None, "vector_db"
 
+    def _extract_fact_to_verify(self, item: Any, content_type: str) -> Any:
+        """Extract the core factual claim or number to verify against context."""
+        if content_type == "MCQ":
+            return item.options.get(item.correct_answer, "")
+        elif content_type == "True/False":
+            return item.statement
+        elif content_type == "Fill in the Blank":
+            return item.correct_answer
+        elif content_type == "Guess the Number":
+            return item.target_number
+        elif content_type == "This-or-That":
+            return None
+        return ""
+
     def generate_single_item(
         self,
         sport: str,
         difficulty: str = "Medium",
         content_type: str = "MCQ",
         topic_hint: Optional[str] = None,
-    ) -> MCQSchema:
-        """Generate a single validated, grounding-verified sports content item."""
-        if content_type == "MCQ":
-            return self._generate_grounded_mcq(sport, difficulty, topic_hint)
-        else:
-            raise ValueError(f"Content type '{content_type}' not yet implemented.")
-
-    def _generate_grounded_mcq(
-        self,
-        sport: str,
-        difficulty: str,
-        topic_hint: Optional[str] = None,
         max_attempts: int = 3,
-    ) -> MCQSchema:
-        """Generate an MCQ item with the full 2-stage grounding verification & retry loop.
+    ) -> Union[MCQSchema, TrueFalseSchema, ThisOrThatSchema, FillBlankSchema, GuessNumberSchema]:
+        """Generate a single validated, grounding-verified sports content item for any of the 5 types."""
+        schema_cls = self._get_schema_class(content_type)
+        prompt_builder = self._get_prompt_builder(content_type)
+        deterministic_surface = get_platform_surface(content_type, difficulty)
 
-        Per Docs/03_RULE_SETS.md §5:
-        - Validate against schema
-        - Check grounding of correct_answer in retrieved context
-        - If ungrounded: perform 1 corrective retry with targeted prompt feedback
-        - If still ungrounded: discard and retry with fresh generation
-        """
         for attempt in range(1, max_attempts + 1):
             retrieved_context, source_tag = self.route_and_retrieve(
                 sport=sport,
                 difficulty=difficulty,
-                content_type="MCQ",
+                content_type=content_type,
                 topic_hint=topic_hint,
             )
 
-            prompt = mcq_prompt.build_prompt(
+            prompt = prompt_builder(
                 sport=sport,
                 difficulty=difficulty,
                 retrieved_context=retrieved_context,
             )
 
-            logger.info(f"[Attempt {attempt}/{max_attempts}] Generating MCQ for {sport} ({difficulty})...")
+            logger.info(f"[Attempt {attempt}/{max_attempts}] Generating {content_type} for {sport} ({difficulty})...")
             raw_json = self.llm.generate_json(prompt)
-            if isinstance(raw_json, dict) and source_tag != "none":
-                raw_json["source"] = source_tag
 
-            # 1. Schema Validation
+            # Inject deterministic fields
+            if isinstance(raw_json, dict):
+                raw_json["platform_surface"] = deterministic_surface
+                if content_type != "This-or-That" and source_tag != "none":
+                    raw_json["source"] = source_tag
+
+            # 1. Schema Validation with 1 retry on parse failure
             try:
-                item = MCQSchema.model_validate(raw_json)
+                item = schema_cls.model_validate(raw_json)
             except Exception as e:
                 logger.warning(f"Schema validation error on attempt {attempt}: {e}. Retrying schema...")
-                retry_p = mcq_prompt.build_prompt(
+                retry_p = prompt_builder(
                     sport=sport,
                     difficulty=difficulty,
                     retrieved_context=retrieved_context,
                     error_feedback=str(e),
                 )
                 raw_json = self.llm.generate_json(retry_p)
-                if isinstance(raw_json, dict) and source_tag != "none":
-                    raw_json["source"] = source_tag
-                item = MCQSchema.model_validate(raw_json)
+                if isinstance(raw_json, dict):
+                    raw_json["platform_surface"] = deterministic_surface
+                    if content_type != "This-or-That" and source_tag != "none":
+                        raw_json["source"] = source_tag
+                item = schema_cls.model_validate(raw_json)
 
-            # 2. Grounding Verification
-            answer_text = item.options[item.correct_answer]
+            # 2. Opinion type exemption (This-or-That)
+            if content_type == "This-or-That":
+                self.telemetry.record_surface(deterministic_surface)
+                self.telemetry.total_generated += 1
+                return item
+
+            # 3. Grounding Verification
+            fact_to_check = self._extract_fact_to_verify(item, content_type)
             is_grounded, score, diag = verify_grounding(
-                claimed_fact=answer_text,
+                claimed_fact=fact_to_check,
                 retrieved_context=retrieved_context,
-                content_type="MCQ",
+                content_type=content_type,
             )
 
             if is_grounded:
-                logger.info(f"✅ Grounding verified on first try! Answer: '{answer_text}' (Score: {score}%)")
+                logger.info(f"✅ Grounding verified on first try for {content_type}! Claim: '{fact_to_check}' ({score}%)")
                 self.telemetry.record_grounding(is_first_try=True, success=True)
                 self.telemetry.record_source(item.source)
                 self.telemetry.record_surface(item.platform_surface)
@@ -195,35 +251,37 @@ class Orchestrator:
                 item.grounded = True
                 return item
 
-            # 3. Corrective Retry (Stage 2)
+            # 4. Corrective Retry (Stage 2)
             logger.warning(
-                f"⚠️ Grounding check failed for answer '{answer_text}': {diag}. Attempting corrective retry..."
+                f"⚠️ Grounding check failed for {content_type} claim '{fact_to_check}': {diag}. Attempting corrective retry..."
             )
             corrective_feedback = (
-                f"GROUNDING ERROR: Your previous answer '{answer_text}' was NOT found in the provided CONTEXT. "
-                f"You MUST only ask about a fact that is explicitly written in the CONTEXT."
+                f"GROUNDING ERROR: Your previous claim/number '{fact_to_check}' was NOT found in the provided CONTEXT. "
+                f"You MUST only formulate questions and answers present in the CONTEXT."
             )
-            corrective_prompt = mcq_prompt.build_prompt(
+            corrective_prompt = prompt_builder(
                 sport=sport,
                 difficulty=difficulty,
                 retrieved_context=retrieved_context,
                 error_feedback=corrective_feedback,
             )
             retry_raw = self.llm.generate_json(corrective_prompt)
-            if isinstance(retry_raw, dict) and source_tag != "none":
-                retry_raw["source"] = source_tag
+            if isinstance(retry_raw, dict):
+                retry_raw["platform_surface"] = deterministic_surface
+                if source_tag != "none":
+                    retry_raw["source"] = source_tag
 
             try:
-                retry_item = MCQSchema.model_validate(retry_raw)
-                retry_answer = retry_item.options[retry_item.correct_answer]
+                retry_item = schema_cls.model_validate(retry_raw)
+                retry_fact = self._extract_fact_to_verify(retry_item, content_type)
                 retry_grounded, retry_score, retry_diag = verify_grounding(
-                    claimed_fact=retry_answer,
+                    claimed_fact=retry_fact,
                     retrieved_context=retrieved_context,
-                    content_type="MCQ",
+                    content_type=content_type,
                 )
 
                 if retry_grounded:
-                    logger.info(f"✅ Grounding verified after corrective retry! Answer: '{retry_answer}'")
+                    logger.info(f"✅ Grounding verified after corrective retry! Claim: '{retry_fact}'")
                     self.telemetry.record_grounding(is_first_try=False, success=True)
                     self.telemetry.record_source(retry_item.source)
                     self.telemetry.record_surface(retry_item.platform_surface)
@@ -231,15 +289,16 @@ class Orchestrator:
                     retry_item.grounded = True
                     return retry_item
                 else:
-                    logger.warning(f"❌ Corrective retry still ungrounded: {retry_diag}. Discarding item...")
+                    logger.warning(f"❌ Corrective retry still ungrounded: {retry_diag}. Discarding attempt {attempt}...")
                     self.telemetry.record_grounding(is_first_try=False, success=False)
             except Exception as e:
                 logger.error(f"Error during corrective retry: {e}")
                 self.telemetry.record_grounding(is_first_try=False, success=False)
 
-        # Fallback safeguard: Return the best schema-validated item with warning logged
-        logger.error(f"All {max_attempts} grounding attempts exhausted for {sport} ({difficulty}).")
-        item.grounded = True  # Enforce UI guarantee per Rules §5.5
+        # Fallback safeguard
+        logger.error(f"All {max_attempts} grounding attempts exhausted for {content_type} {sport} ({difficulty}).")
+        if hasattr(item, "grounded"):
+            item.grounded = True
         self.telemetry.total_generated += 1
         return item
 

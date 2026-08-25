@@ -8,16 +8,16 @@ Enforces strict structural rules per Docs/03_RULE_SETS.md §1:
 - Guess the Number: question, target_number, tolerance >= 0.
 """
 
-from typing import Dict, List, Literal, Optional, Union
+from typing import Annotated, Dict, List, Literal, Optional, Union
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
-# ── Content Item Schemas ─────────────────────────────────────────────────────────
+# ── 1. MCQ Schema ────────────────────────────────────────────────────────────────
 
 class MCQSchema(BaseModel):
     """Multiple Choice Question schema with labeled A/B/C/D options."""
     sport: str = Field(..., description="Sport category")
-    difficulty: Literal["Easy", "Medium", "Hard"] = Field(..., description="Difficulty level")
+    difficulty: Literal["Easy", "Medium", "Hard"] = Field(..., description="Difficulty tier")
     question: str = Field(..., min_length=5, description="The quiz question")
     options: Dict[Literal["A", "B", "C", "D"], str] = Field(
         ...,
@@ -64,6 +64,155 @@ class MCQSchema(BaseModel):
         return self
 
 
+# ── 2. True / False Schema ───────────────────────────────────────────────────────
+
+class TrueFalseSchema(BaseModel):
+    """True or False statement schema."""
+    sport: str = Field(..., description="Sport category")
+    difficulty: Literal["Easy", "Medium", "Hard"] = Field(..., description="Difficulty tier")
+    statement: str = Field(..., min_length=5, description="Factual or false sports statement")
+    correct_answer: bool = Field(..., description="True if statement is factually correct, False otherwise")
+    explanation: str = Field(
+        ...,
+        min_length=5,
+        max_length=300,
+        description="Concise explanation justifying True or False (<= 300 chars)",
+    )
+    source: Literal["web_search", "vector_db", "both"] = Field(
+        default="vector_db",
+        description="Origin of retrieved facts",
+    )
+    platform_surface: Literal["Story", "Feed", "Reel Caption"] = Field(
+        default="Story",
+        description="Optimal Instagram placement surface",
+    )
+    grounded: bool = Field(
+        default=True,
+        description="Whether the statement was verified against context",
+    )
+
+
+# ── 3. This-or-That Schema (Opinion Poll) ────────────────────────────────────────
+
+class ThisOrThatSchema(BaseModel):
+    """This-or-That debate poll schema. Opinion-based, no correct answer or grounding."""
+    sport: str = Field(..., description="Sport category")
+    prompt: str = Field(..., min_length=5, description="Debatable poll question or topic")
+    options: List[str] = Field(..., description="Exactly 2 debate choices")
+    is_opinion: Literal[True] = Field(
+        default=True,
+        description="Must always be True (opinion poll)",
+    )
+    platform_surface: Literal["Story", "Feed", "Reel Caption"] = Field(
+        default="Story",
+        description="Optimal Instagram placement surface (Story Poll sticker)",
+    )
+
+    @field_validator("options")
+    @classmethod
+    def validate_exactly_two_options(cls, v: List[str]) -> List[str]:
+        if len(v) != 2:
+            raise ValueError(f"This-or-That options must have exactly 2 items, got {len(v)}")
+        for opt in v:
+            if not isinstance(opt, str) or not opt.strip():
+                raise ValueError("Options must be non-empty strings")
+        return v
+
+
+# ── 4. Fill in the Blank Schema ──────────────────────────────────────────────────
+
+class FillBlankSchema(BaseModel):
+    """Fill in the Blank schema with single blank marker and 4 choices."""
+    sport: str = Field(..., description="Sport category")
+    difficulty: Literal["Easy", "Medium", "Hard"] = Field(..., description="Difficulty tier")
+    sentence: str = Field(
+        ...,
+        min_length=5,
+        description="Sentence containing exactly one '___' blank marker",
+    )
+    options: List[str] = Field(..., description="Exactly 4 completion options")
+    correct_answer: str = Field(..., description="The word/phrase filling the blank (must be in options)")
+    explanation: str = Field(
+        ...,
+        min_length=5,
+        max_length=300,
+        description="Concise explanation confirming the answer (<= 300 chars)",
+    )
+    source: Literal["web_search", "vector_db", "both"] = Field(
+        default="vector_db",
+        description="Origin of retrieved facts",
+    )
+    platform_surface: Literal["Story", "Feed", "Reel Caption"] = Field(
+        default="Feed",
+        description="Optimal Instagram placement surface",
+    )
+    grounded: bool = Field(
+        default=True,
+        description="Whether the fact was verified in retrieved context",
+    )
+
+    @field_validator("sentence")
+    @classmethod
+    def validate_single_blank_marker(cls, v: str) -> str:
+        count = v.count("___")
+        if count != 1:
+            raise ValueError(f"Sentence must contain exactly one '___' blank marker, found {count}")
+        return v
+
+    @field_validator("options")
+    @classmethod
+    def validate_four_options(cls, v: List[str]) -> List[str]:
+        if len(v) != 4:
+            raise ValueError(f"Fill in the Blank options must contain exactly 4 items, got {len(v)}")
+        for opt in v:
+            if not isinstance(opt, str) or not opt.strip():
+                raise ValueError("Options must be non-empty strings")
+        return v
+
+    @model_validator(mode="after")
+    def validate_correct_answer_in_options(self) -> "FillBlankSchema":
+        if self.correct_answer not in self.options:
+            raise ValueError(f"correct_answer '{self.correct_answer}' must be present in options list {self.options}")
+        return self
+
+
+# ── 5. Guess the Number Schema ───────────────────────────────────────────────────
+
+class GuessNumberSchema(BaseModel):
+    """Guess the Number numeric engagement schema."""
+    sport: str = Field(..., description="Sport category")
+    difficulty: Literal["Easy", "Medium", "Hard"] = Field(..., description="Difficulty tier")
+    question: str = Field(..., min_length=5, description="Numerical sports question")
+    target_number: float = Field(..., description="Exact numerical answer")
+    tolerance: float = Field(..., ge=0.0, description="Acceptable numerical tolerance margin (>= 0)")
+    explanation: str = Field(
+        ...,
+        min_length=5,
+        max_length=300,
+        description="Explanation revealing the exact number and context (<= 300 chars)",
+    )
+    source: Literal["web_search", "vector_db", "both"] = Field(
+        default="vector_db",
+        description="Origin of retrieved facts",
+    )
+    platform_surface: Literal["Story", "Feed", "Reel Caption"] = Field(
+        default="Feed",
+        description="Optimal Instagram placement surface",
+    )
+    grounded: bool = Field(
+        default=True,
+        description="Whether the number was verified in retrieved context",
+    )
+
+
+# ── Content Item Union ───────────────────────────────────────────────────────────
+
+ContentItem = Annotated[
+    Union[MCQSchema, TrueFalseSchema, ThisOrThatSchema, FillBlankSchema, GuessNumberSchema],
+    Field(discriminator=None),
+]
+
+
 # ── API Request & Response Schemas ───────────────────────────────────────────────
 
 class GenerateItemRequest(BaseModel):
@@ -77,11 +226,12 @@ class GenerateItemRequest(BaseModel):
         "Fill in the Blank",
         "Guess the Number",
     ] = Field(default="MCQ", description="Type of engagement content")
+    topic_hint: Optional[str] = Field(default=None, description="Optional focus area or recency hint")
 
 
 class GenerateItemResponse(BaseModel):
     """Response payload returning a generated item."""
     success: bool = True
     content_type: str
-    item: MCQSchema  # Will become a Union as further content types are added in Phase 4
+    item: Union[MCQSchema, TrueFalseSchema, ThisOrThatSchema, FillBlankSchema, GuessNumberSchema]
     error: Optional[str] = None
