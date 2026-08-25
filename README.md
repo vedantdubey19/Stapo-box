@@ -67,11 +67,13 @@ Copy `.env.example` to `.env` and enter your API keys:
 cp .env.example .env
 ```
 
-Ensure `.env` contains the required keys:
+Ensure `.env` contains the required keys (see `.env.example`):
 ```ini
 LLM_PROVIDER=gemini
-GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL=gemini-2.0-flash
+GEMINI_API_KEY=your_primary_gemini_api_key_here
+# Optional second key for dual-API load balancing & doubled speed:
+# GEMINI_API_KEY_2=your_secondary_gemini_key_here
+GEMINI_MODEL=gemini-flash-lite-latest
 TAVILY_API_KEY=your_tavily_api_key_here
 CHROMA_PERSIST_DIR=./data/chroma_db
 BACKEND_HOST=127.0.0.1
@@ -205,7 +207,7 @@ The dashboard includes a dedicated **Analytics Tab** pulling live telemetry from
 
 ## 🧪 Comprehensive Test Suite
 
-Run the full automated test suite (30 unit & integration tests) covering schema edge cases, grounding positive/negative assertions, numeric extraction, surface mapping, and deduplication:
+Run the full automated test suite (33 unit & integration tests) covering schema edge cases, grounding positive/negative assertions, numeric extraction, surface mapping, and deduplication:
 
 ```bash
 pytest tests/ -v
@@ -217,6 +219,25 @@ pytest tests/ -v
 - `tests/test_surface_mapping.py`: Deterministic Instagram surface lookup matrix.
 - `tests/test_dedup.py`: Cosine similarity thresholds and persistent on-disk history.
 - `tests/test_orchestrator.py`: FastAPI endpoints, error handling, and routing rules.
+- `scripts/test_phase0.py`: Phase 0 environment and provider connectivity checks.
+
+---
+
+## 🐳 Docker & Cloud Deployment
+
+The repository includes a production-ready `Dockerfile`, `start.sh`, and `docker-compose.yml` for 1-command deployment:
+
+### 1. Docker Compose (Local / VPS)
+```bash
+cp .env.example .env
+# Add your GEMINI_API_KEY and TAVILY_API_KEY in .env
+docker compose up -d --build
+```
+Access the dashboard at `http://localhost:8501`.
+
+### 2. Cloud Deployment (Render / Hugging Face Spaces / Railway)
+- **Render.com**: Deploy as a **Docker Web Service** pointing to your repository. Set `PORT=8501`, `GEMINI_API_KEY`, and `TAVILY_API_KEY` in Environment Variables.
+- **Hugging Face Spaces**: Create a Space with the **Docker SDK**, add your API keys as Secrets in Space Settings, and push.
 
 ---
 
@@ -239,9 +260,9 @@ pytest tests/ -v
 5. **Export Formats:**
    - *Current:* JSON export and clipboard copying.
    - *Production Improvement:* Provide direct CSV / Buffer / Hootsuite CSV scheduling templates and native image card rendering (Pillow/Canvas) for direct Story sticker overlay export.
-6. **Provider Rate Pacing & Throughput:**
-   - *Current:* Gemini free-tier is rate-limited to 15 RPM; the client enforces a client-side sliding window limiter (12 RPM) with exponential backoff. This ensures zero unhandled 429 errors, but increases batch generation latency under rapid sequential requests.
-   - *Production Improvement:* Upgrading to Gemini Pay-as-you-go (Tier 1, 1000 RPM) or swapping `LLM_PROVIDER=openai`/`claude` removes the throughput bottleneck and enables sub-5s parallel batch generation.
+6. **Multi-Key Concurrency & Provider Pacing:**
+   - *Current:* Batches generate concurrently via `ThreadPoolExecutor(max_workers=5)` using `MultiKeyGeminiPool` (sub-4s batch completion with dual API key rotation and auto-failover).
+   - *Production Improvement:* Adding a distributed Redis-backed Celery worker queue for high-scale enterprise multi-user creator deployments.
 
 ---
 
