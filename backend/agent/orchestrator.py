@@ -1,8 +1,8 @@
 """Agent Orchestrator module.
 
 Coordinates prompt generation, retrieval routing (Tavily + ChromaDB),
-LLM invocation, schema validation, grounding verification, platform surface tagging,
-and resilient batch generation across all 5 engagement content types.
+LLM invocation, schema validation, grounding verification, deterministic platform surface tagging,
+and persistent semantic deduplication across all 5 engagement content types.
 """
 
 import logging
@@ -68,6 +68,9 @@ class TelemetryTracker:
         else:
             self.surface_counts[surface] = 1
 
+    def record_dedup_rejection(self):
+        self.dedup_rejections += 1
+
     def get_stats(self) -> Dict[str, Any]:
         total_grounded = self.grounded_first_try + self.grounded_after_retry
         total_attempts = total_grounded + self.grounding_failures_discarded
@@ -86,7 +89,7 @@ class TelemetryTracker:
 
 
 class Orchestrator:
-    """Core AI agent orchestrating sports content generation and batch management."""
+    """Core AI agent orchestrating sports content generation, deduplication, and batch management."""
 
     def __init__(self):
         self.llm = llm_client
@@ -177,6 +180,20 @@ class Orchestrator:
             return None
         return ""
 
+    def _extract_core_text(self, item: Any, content_type: str) -> str:
+        """Extract the main textual question or statement for semantic deduplication."""
+        if content_type == "MCQ":
+            return item.question
+        elif content_type == "True/False":
+            return item.statement
+        elif content_type == "This-or-That":
+            return item.prompt
+        elif content_type == "Fill in the Blank":
+            return item.sentence
+        elif content_type == "Guess the Number":
+            return item.question
+        return ""
+
     def generate_single_item(
         self,
         sport: str,
@@ -185,7 +202,7 @@ class Orchestrator:
         topic_hint: Optional[str] = None,
         max_attempts: int = 3,
     ) -> ContentItemPayload:
-        """Generate a single validated, grounding-verified sports content item for any of the 5 types."""
+        """Generate a single validated, grounded, deduplicated sports content item."""
         schema_cls = self._get_schema_class(content_type)
         prompt_builder = self._get_prompt_builder(content_type)
         deterministic_surface = get_platform_surface(content_type, difficulty)
@@ -213,7 +230,7 @@ class Orchestrator:
                 if content_type != "This-or-That" and source_tag != "none":
                     raw_json["source"] = source_tag
 
-            # 1. Schema Validation with 1 retry on parse failure
+            # 1. Schema Validation with retry on parse failure
             try:
                 item = schema_cls.model_validate(raw_json)
             except Exception as e:
@@ -231,13 +248,28 @@ class Orchestrator:
                         raw_json["source"] = source_tag
                 item = schema_cls.model_validate(raw_json)
 
-            # 2. Opinion type exemption (This-or-That)
+            # 2. Semantic Deduplication Check
+            core_text = self._extract_core_text(item, content_type)
+            is_dup, dup_score, matched = self.vector_store.is_duplicate(
+                sport=sport,
+                content_type=content_type,
+                core_text=core_text,
+                threshold=0.90,
+            )
+            if is_dup:
+                logger.warning(f"Rejecting duplicate item (similarity {dup_score}): '{core_text}' matched '{matched}'")
+                self.telemetry.record_dedup_rejection()
+                continue  # Retry with a fresh generation
+
+            # 3. Opinion type exemption (This-or-That)
             if content_type == "This-or-That":
+                item_id = str(uuid.uuid4())
+                self.vector_store.record_generated_item(sport, content_type, core_text, item_id)
                 self.telemetry.record_surface(deterministic_surface)
                 self.telemetry.total_generated += 1
                 return item
 
-            # 3. Grounding Verification
+            # 4. Grounding Verification
             fact_to_check = self._extract_fact_to_verify(item, content_type)
             is_grounded, score, diag = verify_grounding(
                 claimed_fact=fact_to_check,
@@ -247,6 +279,8 @@ class Orchestrator:
 
             if is_grounded:
                 logger.info(f"✅ Grounding verified on first try for {content_type}! Claim: '{fact_to_check}' ({score}%)")
+                item_id = str(uuid.uuid4())
+                self.vector_store.record_generated_item(sport, content_type, core_text, item_id)
                 self.telemetry.record_grounding(is_first_try=True, success=True)
                 self.telemetry.record_source(item.source)
                 self.telemetry.record_surface(item.platform_surface)
@@ -254,7 +288,7 @@ class Orchestrator:
                 item.grounded = True
                 return item
 
-            # 4. Corrective Retry (Stage 2)
+            # 5. Corrective Retry (Stage 2)
             logger.warning(
                 f"⚠️ Grounding check failed for {content_type} claim '{fact_to_check}': {diag}. Attempting corrective retry..."
             )
@@ -276,6 +310,16 @@ class Orchestrator:
 
             try:
                 retry_item = schema_cls.model_validate(retry_raw)
+                retry_core = self._extract_core_text(retry_item, content_type)
+                
+                # Re-check dedup on retry
+                is_retry_dup, _, _ = self.vector_store.is_duplicate(
+                    sport=sport, content_type=content_type, core_text=retry_core, threshold=0.90
+                )
+                if is_retry_dup:
+                    self.telemetry.record_dedup_rejection()
+                    continue
+
                 retry_fact = self._extract_fact_to_verify(retry_item, content_type)
                 retry_grounded, retry_score, retry_diag = verify_grounding(
                     claimed_fact=retry_fact,
@@ -285,6 +329,8 @@ class Orchestrator:
 
                 if retry_grounded:
                     logger.info(f"✅ Grounding verified after corrective retry! Claim: '{retry_fact}'")
+                    item_id = str(uuid.uuid4())
+                    self.vector_store.record_generated_item(sport, content_type, retry_core, item_id)
                     self.telemetry.record_grounding(is_first_try=False, success=True)
                     self.telemetry.record_source(retry_item.source)
                     self.telemetry.record_surface(retry_item.platform_surface)
@@ -299,7 +345,9 @@ class Orchestrator:
                 self.telemetry.record_grounding(is_first_try=False, success=False)
 
         # Fallback safeguard
-        logger.error(f"All {max_attempts} grounding attempts exhausted for {content_type} {sport} ({difficulty}).")
+        logger.error(f"All {max_attempts} attempts exhausted for {content_type} {sport} ({difficulty}).")
+        item_id = str(uuid.uuid4())
+        self.vector_store.record_generated_item(sport, content_type, core_text, item_id)
         if hasattr(item, "grounded"):
             item.grounded = True
         self.telemetry.total_generated += 1
@@ -322,7 +370,6 @@ class Orchestrator:
             "Guess the Number",
         ]
         
-        # Round-robin type assignment across the batch
         assigned_types = []
         for i in range(count):
             assigned_types.append(available_types[i % len(available_types)])
@@ -346,7 +393,6 @@ class Orchestrator:
                 batch_items.append(wrapper)
             except Exception as e:
                 logger.error(f"Failed to generate item {idx+1} ({c_type}): {e}. Attempting replacement fallback...")
-                # Resilient replacement: Try MCQ fallback so batch size is preserved
                 try:
                     fallback_item = self.generate_single_item(
                         sport=sport,

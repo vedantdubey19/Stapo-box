@@ -7,8 +7,9 @@ Manages:
 
 import json
 import logging
+import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 import chromadb
 from chromadb.config import Settings as ChromaSettings
 
@@ -21,7 +22,7 @@ SEED_FACTS_DIR = PROJECT_ROOT / "data" / "seed_facts"
 
 
 class VectorStore:
-    """Manages on-disk ChromaDB collections and vector similarity queries."""
+    """Manages on-disk ChromaDB collections, vector queries, and semantic deduplication."""
 
     def __init__(self, persist_dir: Optional[str] = None):
         self.persist_dir = persist_dir or settings.CHROMA_PERSIST_DIR
@@ -95,17 +96,7 @@ class VectorStore:
         query_text: Optional[str] = None,
         n_results: int = 3,
     ) -> List[Dict[str, Any]]:
-        """Query sports facts filtered by sport and optionally difficulty.
-
-        Args:
-            sport: The sport category.
-            difficulty: Optional difficulty level (Easy, Medium, Hard).
-            query_text: Optional semantic search text. Defaults to sport and difficulty.
-            n_results: Max number of facts to return.
-
-        Returns:
-            List of dicts containing document text, metadata, and distance score.
-        """
+        """Query sports facts filtered by sport and optionally difficulty."""
         search_text = query_text or f"{difficulty or ''} {sport} sports facts records rules history"
         where_filter: Dict[str, Any] = {"sport": sport}
         if difficulty:
@@ -138,7 +129,6 @@ class VectorStore:
                 distances = results["distances"][0] if results.get("distances") else [0.0] * len(docs)
                 
                 for doc, meta, dist in zip(docs, metas, distances):
-                    # Cosine similarity = 1 - cosine distance
                     sim = 1.0 - dist if dist is not None else 1.0
                     formatted_results.append({
                         "text": doc,
@@ -151,6 +141,99 @@ class VectorStore:
         except Exception as e:
             logger.error(f"VectorStore query_facts error: {e}", exc_info=True)
             return []
+
+    # ── Deduplication / Generation History ──────────────────────────────────────
+
+    def record_generated_item(
+        self,
+        sport: str,
+        content_type: str,
+        core_text: str,
+        item_id: str,
+    ) -> None:
+        """Store accepted item core text into persistent ChromaDB generation_history."""
+        if not core_text or not core_text.strip():
+            return
+
+        try:
+            self.history_collection.add(
+                documents=[core_text.strip()],
+                metadatas=[{
+                    "sport": sport,
+                    "content_type": content_type,
+                    "timestamp": time.time(),
+                }],
+                ids=[item_id],
+            )
+            logger.info(f"Recorded item '{item_id}' in generation_history (total: {self.history_collection.count()})")
+        except Exception as e:
+            logger.error(f"Failed to record item in generation history: {e}")
+
+    def is_duplicate(
+        self,
+        sport: str,
+        content_type: str,
+        core_text: str,
+        threshold: float = 0.90,
+        max_history: int = 50,
+    ) -> Tuple[bool, float, Optional[str]]:
+        """Check semantic similarity against the last N stored items for sport+type.
+
+        Per Docs/03_RULE_SETS.md §6:
+        If cosine similarity > 0.90, flag as duplicate.
+
+        Returns:
+            Tuple of (is_duplicate: bool, similarity_score: float, matched_text: Optional[str])
+        """
+        if not core_text or not core_text.strip():
+            return False, 0.0, None
+
+        history_count = self.history_collection.count()
+        if history_count == 0:
+            return False, 0.0, None
+
+        try:
+            n_res = min(history_count, max_history)
+            where_filter = {
+                "$and": [
+                    {"sport": sport},
+                    {"content_type": content_type},
+                ]
+            }
+
+            try:
+                results = self.history_collection.query(
+                    query_texts=[core_text.strip()],
+                    n_results=n_res,
+                    where=where_filter,
+                )
+            except Exception:
+                # Fallback to query without metadata filter if filtered query errors
+                results = self.history_collection.query(
+                    query_texts=[core_text.strip()],
+                    n_results=n_res,
+                )
+
+            if results["documents"] and results["documents"][0]:
+                docs = results["documents"][0]
+                distances = results["distances"][0] if results.get("distances") else [1.0] * len(docs)
+                
+                for doc, dist in zip(docs, distances):
+                    similarity = 1.0 - dist if dist is not None else 0.0
+                    if similarity >= threshold:
+                        logger.warning(
+                            f"Semantic duplicate detected! Similarity: {similarity:.3f} >= {threshold}. Matched: '{doc}'"
+                        )
+                        return True, round(similarity, 3), doc
+                
+                # Return highest similarity even if under threshold
+                best_sim = 1.0 - min(distances) if distances else 0.0
+                return False, round(best_sim, 3), docs[0] if docs else None
+
+            return False, 0.0, None
+        except Exception as e:
+            logger.error(f"Deduplication check error: {e}", exc_info=True)
+            return False, 0.0, None
 
 
 # Singleton VectorStore instance
