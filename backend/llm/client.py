@@ -97,10 +97,17 @@ class LLMClient:
                 k2 = settings.GEMINI_API_KEY_2.strip()
                 if k2 and k2 not in keys:
                     keys.append(k2)
+
+            primary_model = settings.GEMINI_MODEL or "gemini-flash-lite-latest"
+            # If an API key was accidentally passed as the model name:
+            if primary_model.startswith("AQ.") or primary_model.startswith("AIza") or len(primary_model) > 35:
+                if primary_model not in keys:
+                    keys.append(primary_model)
+                primary_model = "gemini-flash-lite-latest"
+
             if not keys:
                 raise ValueError("GEMINI_API_KEY is required when LLM_PROVIDER=gemini")
 
-            primary_model = settings.GEMINI_MODEL or "gemini-flash-lite-latest"
             self.gemini_pool = MultiKeyGeminiPool(api_keys=keys, primary_model=primary_model)
             logger.info(f"Initialized Gemini Multi-Key Pool with {len(keys)} key(s) on model '{primary_model}'")
         elif self.provider == "openai":
